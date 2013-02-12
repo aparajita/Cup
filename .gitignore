@@ -1,0 +1,4 @@
+/.XcodeSupport/
+/Build/
+/Frameworks/
+*.xcodeproj
