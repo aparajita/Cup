@@ -9,6 +9,7 @@
 @import <Foundation/CPObject.j>
 
 @import "JQueryFileUpload.j"
+@import "JQueryFileUploadQueueController.j"
 
 
 @implementation AppController : CPObject
@@ -18,21 +19,27 @@
     @outlet CPButton            uploadButton;
     @outlet CPButton            resetButton;
     @outlet CPProgressIndicator progressBar;
+    @outlet CPView              queueContainer;
+
+    JQueryFileUploadQueueController queueController;
 }
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
-    [upload initWithURL:@"http://dev.upload.com/index.php"];
-    [upload setDelegate:self];
-    [upload setDropTarget:[testWindow contentView]];
-    [upload setMaximumChunkSize:50000];
 }
 
 - (void)awakeFromCib
 {
-    var bounds = [progressBar bounds];
+    [upload initWithURL:@"http://dev.upload.com/index.php"];
+    [upload setDropTarget:[testWindow contentView]];
+    [upload setMaximumChunkSize:50000];
 
-    [progressBar setFrameSize:CGSizeMake(CGRectGetWidth(bounds), [progressBar valueForThemeAttribute:@"default-height"])];
+    queueController = [[JQueryFileUploadQueueController alloc] initWithFileUpload:upload];
+
+    var queueView = [queueController view];
+
+    [queueView setFrame:[queueContainer bounds]];
+    [queueContainer addSubview:queueView];
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data

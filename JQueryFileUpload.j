@@ -1,14 +1,18 @@
 /*
  * JQueryFileUpload.j
- * upload
+ * JQueryFileUpload
  *
  * Created by Aparajita Fishman on February 3, 2013.
- * Copyright 2013, Filmworkers. All rights reserved.
+ * Copyright 2013, Filmworkers Club. All rights reserved.
  */
 
-@import <Foundation/CPObject.j>
+@import <Foundation/CPDictionary.j>
+@import <Foundation/CPRunLoop.j>
+@import <Foundation/CPTimer.j>
+
 @import <AppKit/CPCompatibility.j>
 @import <AppKit/CPPlatform.j>
+@import <AppKit/CPPlatformWindow.j>
 
 @global jQuery
 
@@ -31,7 +35,9 @@ var widgetId = @"JQueryFileUpload_input",
     delegateChunkSend = 1 << 14,
     delegateChunkSucceed = 1 << 15,
     delegateChunkFail = 1 << 16,
-    delegateChunkComplete = 1 << 17;
+    delegateChunkComplete = 1 << 17,
+    delegateClearQueue = 1 << 18,
+    delegateStopQueue = 1 << 19;
 
 
 /*!
@@ -67,7 +73,6 @@ var widgetId = @"JQueryFileUpload_input",
     CPString            URL @accessors;
     CPString            redirectURL @accessors;
     BOOL                sequential @accessors;
-    BOOL                singleFileUploads @accessors;
     int                 multiFileLimit @accessors;
     int                 maximumChunkSize @accessors;
     int                 maxConcurrentUploads @accessors;
@@ -128,8 +133,7 @@ var widgetId = @"JQueryFileUpload_input",
 
     URL = options["url"] || @"";
     redirectURL = options["redirect"] || @"";
-    sequential = options["sequential"] || NO;
-    singleFileUploads = options["singleFileUploads"] || NO;
+    sequential = options["sequential"] || YES;
     multiFileLimit = options["limitMultiFileUploads"] || 0;
     maximumChunkSize = options["maxChunkSize"] || 0;
     maxConcurrentUploads = ["limitConcurrentUploads"] || NO;
@@ -170,6 +174,12 @@ var widgetId = @"JQueryFileUpload_input",
 
     if ([delegate respondsToSelector:@selector(fileUpload:didAddFilesWithEvent:data:)])
         delegateImplementsFlags |= delegateAdd;
+
+    if ([delegate respondsToSelector:@selector(fileUploadDidClearQueue:)])
+        delegateImplementsFlags |= delegateClearQueue;
+
+    if ([delegate respondsToSelector:@selector(fileUploadDidStopQueue:)])
+        delegateImplementsFlags |= delegateStopQueue;
 
     if ([delegate respondsToSelector:@selector(fileUpload:willSubmitFilesWithEvent:data:)])
         delegateImplementsFlags |= delegateSubmit;
@@ -235,13 +245,25 @@ var widgetId = @"JQueryFileUpload_input",
     Upload the currently selected files.
     Can be used as an action method.
 */
-- (@action)upload:(id)sender
+- (@action)start:(id)sender
 {
     [self fileUpload:"option", [self makeOptions]];
 
     [fileData enumerateObjectsUsingBlock:function(data)
         {
             data.submit();
+        }];
+}
+
+/*!
+    Abort all uploads.
+*/
+- (@action)stop:(id)sender
+{
+    [fileData enumerateObjectsUsingBlock:function(data)
+        {
+            if (data.jqXHR)
+                data.jqXHR.abort();
         }];
 }
 
@@ -256,6 +278,9 @@ var widgetId = @"JQueryFileUpload_input",
 
     [fileData removeAllObjects];
     [self setFileCount:0];
+
+    if (delegateImplementsFlags & delegateClearQueue)
+        [delegate fileUploadDidClearQueue:self];
 }
 
 - (@action)reset:(id)sender
@@ -264,10 +289,26 @@ var widgetId = @"JQueryFileUpload_input",
     [self resetOverallProgress];
 }
 
+#pragma mark Methods
+
+- (void)abortUploadWithId:(CPString)anId
+{
+    var data = [fileData objectAtIndex:[fileData indexOfObjectPassingTest:function(object)
+                    {
+                        return object.CPUID === anId;
+                    }]];
+
+    if (data && data.jqXHR)
+        data.jqXHR.abort();
+}
+
 #pragma mark Delegate (private)
 
 - (void)addFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
 {
+    // Create a unique ID that makes it easy to identify this data
+    data.CPUID = objj_generateObjectUID();
+
     if ([fileData count] === 0)
         [self resetOverallProgress];
 
@@ -330,6 +371,9 @@ var widgetId = @"JQueryFileUpload_input",
 {
     if (delegateImplementsFlags & delegateProgress)
         [delegate fileUpload:self uploadDidProgressWithEvent:anEvent data:data];
+
+    // Pump the run loop, this is called outside of Cappuccino's run loop
+    [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 }
 
 - (void)overallProgressWithEvent:(jQueryEvent)anEvent data:(JSObject)data
@@ -358,7 +402,6 @@ var widgetId = @"JQueryFileUpload_input",
 - (void)uploadDidStopWithEvent:(jQueryEvent)anEvent
 {
     [self setUploading:NO];
-    [self clearQueue:self];
 
     if (delegateImplementsFlags & delegateStop)
         [delegate fileUpload:self uploadDidStopWithEvent:anEvent];
@@ -430,14 +473,14 @@ var widgetId = @"JQueryFileUpload_input",
     initialized = NO;
 
     [self makeFileInput];
+
     fileData = [];
     fileUploadOptions = {};
     delegateImplementsFlags = 0;
 
     URL = URL || @"";
     redirectURL = @"";
-    sequential = NO;
-    singleFileUploads = YES;
+    sequential = YES;
     multiFileLimit = 0;
     maxConcurrentUploads = 0;
     overallProgress = [CPMutableDictionary dictionary];
@@ -534,7 +577,7 @@ var widgetId = @"JQueryFileUpload_input",
     fileUploadOptions["url"] = URL;
     fileUploadOptions["redirect"] = redirectURL;
     fileUploadOptions["sequentialUploads"] = sequential;
-    fileUploadOptions["singleFileUploads"] = singleFileUploads;
+    fileUploadOptions["singleFileUploads"] = true;
     fileUploadOptions["limitMultiFileUploads"] = multiFileLimit;
     fileUploadOptions["maxChunkSize"] = maximumChunkSize;
     fileUploadOptions["limitConcurrentUploads"] = maxConcurrentUploads;

@@ -1,9 +1,9 @@
 /*
  * JQueryFileUploadDelegate.j
- * upload
+ * JQueryFileUpload
  *
  * Created by Aparajita Fishman on February 7, 2013.
- * Copyright 2013, Filmworkers. All rights reserved.
+ * Copyright 2013, Filmworkers Club. All rights reserved.
  */
 
 @import <Foundation/CPObject.j>
@@ -22,6 +22,14 @@
 @implementation JQueryFileUploadDelegate : CPObject
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+{
+}
+
+- (void)fileUploadDidClearQueue:(JQueryFileUpload)aFileUpload
+{
+}
+
+- (void)fileUploadDidStopQueue:(JQueryFileUpload)aFileUpload
 {
 }
 
