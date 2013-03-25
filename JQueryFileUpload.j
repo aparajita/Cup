@@ -375,6 +375,7 @@ var widgetId = @"JQueryFileUpload_input",
 
         queueController = [[CPArrayController alloc] initWithContent:queue];
         [queueController setObjectClass:[JQueryFileUploadFile class]];
+        [queueController addObserver:self forKeyPath:@"content" options:0 context:nil];
     }
 
     return queueController;
@@ -446,6 +447,22 @@ var widgetId = @"JQueryFileUpload_input",
                     }]];
 
     [file abort];
+}
+
+#pragma mark Overrides
+
+- (void)awakeFromCib
+{
+    [queueController addObserver:self forKeyPath:@"content" options:0 context:nil];
+}
+
+- (void)observeValueForKeyPath:(CPString)aKeyPath ofObject:(id)anObject change:(CPDictionary)changeDict context:(JSObject)context
+{
+    if (aKeyPath === @"content")
+    {
+        // If a file is added or removed from the content, reset the overall progress to zero.
+        [self resetOverallProgressZeroingTotal:NO];
+    }
 }
 
 #pragma mark Delegate (private)
@@ -579,13 +596,6 @@ var widgetId = @"JQueryFileUpload_input",
 {
     if (delegateImplementsFlags & delegateComplete)
         [delegate fileUpload:self uploadDidCompleteForFile:aFile];
-
-    // After a second, reset the file's progress
-    [CPTimer scheduledTimerWithTimeInterval:1 callback:function()
-        {
-            [aFile setUploadedBytes:0];
-        }
-        repeats:NO];
 }
 
 - (void)uploadDidStop
@@ -595,23 +605,17 @@ var widgetId = @"JQueryFileUpload_input",
     if (delegateImplementsFlags & delegateStop)
         [delegate fileUploadDidStop:self];
 
-    // After a second, remove complete files and reset the overall progress
-    [CPTimer scheduledTimerWithTimeInterval:1 callback:function()
-        {
-            if (removeCompletedFiles)
-            {
-                var indexes = [queue indexesOfObjectsPassingTest:function(file)
-                                {
-                                    return [file status] === FileStatus_Complete;
-                                }];
+    // Remove complete files
+    if (removeCompletedFiles)
+    {
+        var indexes = [queue indexesOfObjectsPassingTest:function(file)
+                        {
+                            return [file status] === FileStatus_Complete;
+                        }];
 
-                [queue removeObjectsAtIndexes:indexes];
-                [[self queueController] setContent:queue];
-            }
-
-            [self resetOverallProgressZeroingTotal:YES];
-        }
-        repeats:NO];
+        [queue removeObjectsAtIndexes:indexes];
+        [[self queueController] setContent:queue];
+    }
 }
 
 - (void)fileInputDidSelectFiles:(CPArray)files
