@@ -18,10 +18,90 @@
     functionality for those callbacks that expect something to be done.
     If you are only using this as a template, you only need to implement
     the methods that you intend to add some functionality to.
+
+    There are several Javascript object types passed as parameters to these methods:
+
+    jQueryEvent - A standard jQuery event object.
+    progress - Tracks the progress of an individual or overall upload. Contains three properties:
+        uploadedBytes - Total bytes uploaded so far
+        total         - The total to be uploaded
+        bitrate       - The average bitrate so far
+
+    If the delegate wants access to the underlying jQuery event or
+    jQuery-File-Upload data object that is current, it can use the methods
+    [fileUpload currentEvent] or [fileUpload currentData].
 */
 @implementation JQueryFileUploadDelegate : CPObject
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willAddFile:(JQueryFileUploadFile)aFile
+{
+    return YES;
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUploadDidStart:(JQueryFileUpload)aFileUpload
+{
+}
+
+- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSubmitFile:(JQueryFileUploadFile)aFile
+{
+    return YES;
+}
+
+- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSendFile:(JQueryFileUploadFile)aFile
+{
+    return YES;
+}
+
+- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSendChunkForFile:(JQueryFileUploadFile)aFile
+{
+    return YES;
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidSucceedForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidFailForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidCompleteForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadForFile:(JQueryFileUploadFile)aFile didProgress:(JSObject)progress
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgressOverall:(JSObject)progress
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidSucceedForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidFailForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUploadDidStop:(JQueryFileUpload)aFileUpload
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload fileInputDidSelectFiles:(CPArray)files
+{
+}
+
+- (void)fileUploadDidStartQueue:(JQueryFileUpload)aFileUpload
 {
 }
 
@@ -33,74 +113,15 @@
 {
 }
 
-- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSubmitFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-    return YES;
-}
-
-- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSendFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-    return YES;
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidSucceedWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (void)fileUpload:(JQueryFileUpload)aFileUpload didPasteFiles:(CPArray)files
 {
 }
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidFailWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (void)fileUpload:(JQueryFileUpload)aFileUpload didDropFiles:(CPArray)files
 {
 }
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidProgressWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgressOverallWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidStartWithEvent:(jQueryEvent)anEvent
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidStopWithEvent:(jQueryEvent)anEvent
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload fileInputDidChangeWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload didPasteFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload didDropFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload didDragOverFilesWithEvent:(jQueryEvent)anEvent
-{
-}
-
-- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSendChunkWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-    return YES;
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidSucceedWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidFailWithEvent:(jQueryEvent)anEvent data:(JSObject)data
-{
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidCompleteWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (void)fileUpload:(JQueryFileUpload)aFileUpload wasDraggedOverWithEvent:(jQueryEvent)anEvent
 {
 }
 

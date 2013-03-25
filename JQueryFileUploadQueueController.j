@@ -32,6 +32,7 @@ var JQueryFileUploadQueueControllerInstance = nil,
     @outlet CPArrayController   queueController;
     CPArray                     queue;
     JQueryFileUpload            fileUpload
+    JSObject                    validFilenameRegex @accessors;
 }
 
 #pragma mark Initialization
@@ -77,7 +78,15 @@ var JQueryFileUploadQueueControllerInstance = nil,
 
 #pragma mark JQueryFileUploadDelegate
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFilesWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willAddFile:(JSFile)aFile
+{
+    if (validFilenameRegex)
+        return validFilenameRegex.test(aFile.name);
+
+    return YES;
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFile:(JSFile)aFile
 {
     var indexes = [queue indexesOfObjectsPassingTest:function(object)
                         {
@@ -86,29 +95,21 @@ var JQueryFileUploadQueueControllerInstance = nil,
 
     [queueController removeObjectsAtArrangedObjectIndexes:indexes];
 
-    for (var i = 0; i < data.files.length; ++i)
-    {
-        var file = data.files[i],
-            dict = [CPDictionary dictionaryWithObjectsAndKeys:
-                        data.CPUID,         @"id",
-                        self,               @"controller",
-                        file.name,          @"filename",
-                        file.size,          @"size",
-                        file.type,          @"type",
-                        FileStatus_Pending, @"status",
-                        0,                  @"progress",
-                        data,               @"data"];
+    var dict = @{
+        @"id":          aFile.CPUID,
+        @"controller":  self,
+        @"filename":    aFile.name,
+        @"size":        aFile["size"] || 0,
+        @"type":        aFile["type"] || @"",
+        @"status":      FileStatus_Pending,
+        @"progress":    0,
+        @"data":        [aFileUpload dataWithId:aFile.CPUID];
+    };
 
-        [queueController addObject:dict];
-    }
+    [queueController addObject:dict];
 }
 
-- (void)fileUploadDidClearQueue:(JQueryFileUpload)aFileUpload
-{
-    [self updateQueueWithBlock:function() { [queue removeAllObjects]; }];
-}
-
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidStartWithEvent:(jQueryEvent)anEvent
+- (void)fileUploadDidStart:(JQueryFileUpload)aFileUpload
 {
     [queueController setSelectionIndexes:[CPIndexSet indexSet]];
 
@@ -119,18 +120,23 @@ var JQueryFileUploadQueueControllerInstance = nil,
         }];
 }
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidProgressWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadForFile:(JSFile)aFile didProgress:(JSObject)progress
 {
-    [self updateProgressForFileWithId:data.CPUID uploaded:data.uploadedBytes total:data.total];
+    [self updateProgressForFileWithId:aFile.CPUID uploaded:progress.uploaded total:progress.total];
 }
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteWithEvent:(jQueryEvent)anEvent data:(JSObject)data
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteForFile:(JSFile)aFile progress:(JSObject)progress
 {
-    [self updateProgressForFileWithId:data.CPUID uploaded:data.uploadedBytes total:data.total];
+    [self updateProgressForFileWithId:aFile.CPUID uploaded:progress.uploaded total:progress.total];
 
-    var file = [self fileWithId:data.CPUID];
+    var file = [self fileWithId:aFile.CPUID];
 
     [self updateQueueWithBlock:function() { [file setValue:FileStatus_Complete forKey:@"status"]; } ];
+}
+
+- (void)fileUploadDidClearQueue:(JQueryFileUpload)aFileUpload
+{
+    [self updateQueueWithBlock:function() { [queue removeAllObjects]; }];
 }
 
 - (void)fileUploadDidStopQueue:(JQueryFileUpload)aFileUpload
@@ -144,6 +150,15 @@ var JQueryFileUploadQueueControllerInstance = nil,
 
 
 #pragma mark Methods
+
+/*!
+    Sets the regex used to validate filenames that are being added to the queue.
+    The string is passed to `new RegExp()`, so no delimiters should be included in the string.
+*/
+- (void)setValidFilenameRegexWithString:(CPString)aString caseSensitive:(BOOL)caseSensitive
+{
+    validFilenameRegex = new RegExp(aString, caseSensitive ? "" : "i");
+}
 
 - (@action)removeSelectedFiles:(id)sender
 {
