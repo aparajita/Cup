@@ -7,6 +7,7 @@
  */
 
 @import <Foundation/CPObject.j>
+@import <AppKit/CPAlert.j>
 
 @import "JQueryFileUpload.j"
 
@@ -15,10 +16,6 @@
 {
     @outlet CPWindow            testWindow;
     @outlet JQueryFileUpload    upload;
-    @outlet CPButton            uploadButton;
-    @outlet CPButton            resetButton;
-    @outlet CPProgressIndicator progressBar;
-    @outlet CPViewController    queueController;
 }
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
@@ -69,6 +66,18 @@
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteForFile:(JQueryFileUploadFile)aFile
 {
     console.log("%s %s", _cmd, [aFile description]);
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadWasAbortedForFile:(JQueryFileUploadFile)aFile
+{
+    console.log("%s %s", _cmd, [aFile description]);
+
+    [[CPAlert alertWithMessageText:[CPString stringWithFormat:@"Transfer of “%@” has been aborted.", [aFile name]]
+                     defaultButton:@"OK"
+                   alternateButton:nil
+                       otherButton:nil
+         informativeTextWithFormat:@""] runModal];
+
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadForFile:(JQueryFileUploadFile)aFile didProgress:(JSObject)progress
@@ -145,44 +154,6 @@
 - (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidCompleteForFile:(JQueryFileUploadFile)aFile
 {
     console.log("%s %s", _cmd, [aFile description]);
-}
-
-@end
-
-
-var ByteCountTransformerFormatter = nil;
-
-@implementation ByteCountTransformer : CPValueTransformer
-
-+ (void)initialize
-{
-    if (self !== ByteCountTransformer)
-        return;
-
-    [CPValueTransformer setValueTransformer:[self new]
-                                    forName:@"ByteCountTransformer"];
-
-    ByteCountTransformerFormatter = [CPByteCountFormatter new];
-    [ByteCountTransformerFormatter setAdaptive:YES];
-    [ByteCountTransformerFormatter setAllowedUnits:CPByteCountFormatterUseKB | CPByteCountFormatterUseMB | CPByteCountFormatterUseGB];
-    [ByteCountTransformerFormatter setAllowsNonnumericFormatting:NO];
-    [ByteCountTransformerFormatter setZeroPadsFractionDigits:YES];
-}
-
-+ (Class)transformedValueClass
-{
-    return [CPString class];
-}
-
-+ (BOOL)allowsReverseTransformation
-{
-    return NO;
-}
-
-- (id)transformedValue:(id)value
-{
-    value = value === nil ? 0 : value;
-    return [ByteCountTransformerFormatter stringFromByteCount:value];
 }
 
 @end

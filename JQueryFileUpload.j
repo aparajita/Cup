@@ -15,6 +15,9 @@
 @import <AppKit/CPPlatform.j>
 @import <AppKit/CPPlatformWindow.j>
 
+@import "JQueryFileUploadByteCountTransformer.j"
+@import "jQueryFileUploadTableCellView.j"
+
 @global jQuery
 
 
@@ -38,14 +41,16 @@ var FileStatus_Pending   = 0,
 */
 @implementation JQueryFileUploadFile : CPObject
 {
-    CPString    name @accessors(readonly);
-    int         size @accessors(readonly);
-    CPString    type @accessors(readonly);
-    int         status @accessors;
-    int         uploadedBytes @accessors;
-    float       bitrate @accessors;
-    BOOL        indeterminate @accessors(readonly);
-    JSObject    data @accessors;
+    JQueryFileUpload    uploader;
+    CPString            name @accessors(readonly);
+    int                 size @accessors(readonly);
+    CPString            type @accessors(readonly);
+    int                 status @accessors;
+    BOOL                uploading @accessors;
+    int                 uploadedBytes @accessors;
+    float               bitrate @accessors;
+    BOOL                indeterminate @accessors(readonly);
+    JSObject            data @accessors;
 }
 
 + (void)initialize
@@ -60,12 +65,14 @@ var FileStatus_Pending   = 0,
 
     Init with a Javascript File object and jQuery-File-upload data.
 */
-- (id)initWithFile:(JSObject)aFile data:(JSObject)someData
+- (id)initWithUploader:(JQueryFileUpload)anUploader file:(JSObject)aFile data:(JSObject)someData
 {
     if (self = [super init])
     {
+        uploader = anUploader;
         name = aFile.name;
         status = FileStatus_Pending;
+        uploading = NO;
         bitrate = 0.0;
         data = someData;
 
@@ -104,7 +111,7 @@ var FileStatus_Pending   = 0,
     return indeterminate ? 0 : FLOOR(uploadedBytes / size * 100);
 }
 
-- (void)start
+- (void)submit
 {
     [self setStatus:FileStatus_Uploading];
     [self setUploadedBytes:0];
@@ -112,11 +119,24 @@ var FileStatus_Pending   = 0,
     data.submit();
 }
 
+- (void)start
+{
+    [self setUploading:YES];
+}
+
 - (void)stop
 {
     [self setStatus:FileStatus_Pending];
+    [self setUploading:NO];
 
     data.abort();
+}
+
+- (void)abort
+{
+    [self stop];
+
+    [uploader uploadWasAbortedForFile:self];
 }
 
 - (CPString)description
@@ -136,21 +156,22 @@ var widgetId = @"JQueryFileUpload_input",
     delegateSucceed = 1 << 4,
     delegateFail = 1 << 5,
     delegateComplete = 1 << 6,
-    delegateProgress = 1 << 7,
-    delegateOverallProgress = 1 << 8,
-    delegateStart = 1 << 9,
-    delegateStop = 1 << 10,
-    delegateChange = 1 << 11,
-    delegatePaste = 1 << 12,
-    delegateDrop = 1 << 13,
-    delegateDrag = 1 << 14,
-    delegateChunkWillSend = 1 << 15,
-    delegateChunkSucceed = 1 << 16,
-    delegateChunkFail = 1 << 17,
-    delegateChunkComplete = 1 << 18,
-    delegateStartQueue = 1 << 19,
-    delegateClearQueue = 1 << 20,
-    delegateStopQueue = 1 << 21;
+    delegateAbort = 1 << 7,
+    delegateProgress = 1 << 8,
+    delegateOverallProgress = 1 << 9,
+    delegateStart = 1 << 10,
+    delegateStop = 1 << 11,
+    delegateChange = 1 << 12,
+    delegatePaste = 1 << 13,
+    delegateDrop = 1 << 14,
+    delegateDrag = 1 << 15,
+    delegateChunkWillSend = 1 << 16,
+    delegateChunkSucceed = 1 << 17,
+    delegateChunkFail = 1 << 18,
+    delegateChunkComplete = 1 << 19,
+    delegateStartQueue = 1 << 20,
+    delegateClearQueue = 1 << 21,
+    delegateStopQueue = 1 << 22;
 
 /*!
     @class JQueryFileUpload
@@ -332,6 +353,9 @@ var widgetId = @"JQueryFileUpload_input",
     if ([delegate respondsToSelector:@selector(fileUpload:uploadDidCompleteForFile:)])
         delegateImplementsFlags |= delegateComplete;
 
+    if ([delegate respondsToSelector:@selector(fileUpload:uploadWasAbortedForFile:)])
+        delegateImplementsFlags |= delegateAbort;
+
     if ([delegate respondsToSelector:@selector(fileUploadDidStop:)])
         delegateImplementsFlags |= delegateStop;
 
@@ -400,7 +424,7 @@ var widgetId = @"JQueryFileUpload_input",
 {
     [self fileUpload:@"option", [self makeOptions]];
 
-    [queue makeObjectsPerformSelector:@selector(start)];
+    [queue makeObjectsPerformSelector:@selector(submit)];
 
     if (delegateImplementsFlags & delegateStartQueue)
         [delegate fileUploadDidStartQueue:self];
@@ -474,7 +498,7 @@ var widgetId = @"JQueryFileUpload_input",
     if (validFilenameRegex)
         canAdd = validFilenameRegex.test(aFile.name);
 
-    var file = [[JQueryFileUploadFile alloc] initWithFile:aFile data:currentData];
+    var file = [[JQueryFileUploadFile alloc] initWithUploader:self file:aFile data:currentData];
 
     // Tag the JS File object with the JQueryFileUploadFile UID so we can locate
     // the JQueryFileUploadFile object later from a File object.
@@ -511,10 +535,15 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (BOOL)willSendFile:(JQueryFileUploadFile)aFile
 {
-    if (delegateImplementsFlags & delegateSend)
-        return [delegate fileUpload:self willSendFile:aFile];
+    var canSend = YES;
 
-    return YES;
+    if (delegateImplementsFlags & delegateSend)
+        canSend = [delegate fileUpload:self willSendFile:aFile];
+
+    if (canSend)
+        [aFile start];
+
+    return canSend;
 }
 
 - (BOOL)chunkWillSendForFile:(JQueryFileUploadFile)aFile
@@ -594,8 +623,16 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (void)uploadDidCompleteForFile:(JQueryFileUploadFile)aFile
 {
+    [aFile setUploading:NO];
+
     if (delegateImplementsFlags & delegateComplete)
         [delegate fileUpload:self uploadDidCompleteForFile:aFile];
+}
+
+- (void)uploadWasAbortedForFile:(JQueryFileUploadFile)aFile
+{
+    if (delegateImplementsFlags & delegateAbort)
+        [delegate fileUpload:self uploadWasAbortedForFile:aFile];
 }
 
 - (void)uploadDidStop

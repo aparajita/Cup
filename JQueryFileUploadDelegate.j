@@ -19,9 +19,8 @@
     If you are only using this as a template, you only need to implement
     the methods that you intend to add some functionality to.
 
-    There are several Javascript object types passed as parameters to these methods:
+    There is one Javascript object type passed as a parameter to these methods:
 
-    jQueryEvent - A standard jQuery event object.
     progress - Tracks the progress of an individual or overall upload. Contains three properties:
         uploadedBytes - Total bytes uploaded so far
         total         - The total to be uploaded
@@ -90,6 +89,10 @@
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteForFile:(JQueryFileUploadFile)aFile
+{
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadWasAbortedForFile:(JQueryFileUploadFile)aFile
 {
 }
 
