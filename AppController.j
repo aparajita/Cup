@@ -28,6 +28,18 @@
     [upload setDropTarget:[testWindow contentView]];
     [upload setMaximumChunkSize:50000];
     [upload setDelegate:self];
+    [upload setAllowedExtensions:["pdf", "png", "jpg"]];
+}
+
+- (void)fileUpload:(JQueryFileUpload)aFileUpload didFilterFile:(JQueryFileUploadFile)aFile
+{
+    console.log("%s %s", _cmd, [aFile description]);
+
+    [[CPAlert alertWithMessageText:[CPString stringWithFormat:@"The filename “%@” did not match the filter “%@”.", [aFile name], [aFileUpload filenameFilter]]
+                     defaultButton:@"OK"
+                   alternateButton:nil
+                       otherButton:nil
+         informativeTextWithFormat:@""] runModal];
 }
 
 - (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willAddFile:(JQueryFileUploadFile)aFile

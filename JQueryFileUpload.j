@@ -149,29 +149,30 @@ var FileStatus_Pending   = 0,
 
 var widgetId = @"JQueryFileUpload_input",
     callbacks = nil,
-    delegateWillAdd = 1 << 0,
-    delegateAdd = 1 << 1,
-    delegateSubmit = 1 << 2,
-    delegateSend = 1 << 3,
-    delegateSucceed = 1 << 4,
-    delegateFail = 1 << 5,
-    delegateComplete = 1 << 6,
-    delegateAbort = 1 << 7,
-    delegateProgress = 1 << 8,
-    delegateOverallProgress = 1 << 9,
-    delegateStart = 1 << 10,
-    delegateStop = 1 << 11,
-    delegateChange = 1 << 12,
-    delegatePaste = 1 << 13,
-    delegateDrop = 1 << 14,
-    delegateDrag = 1 << 15,
-    delegateChunkWillSend = 1 << 16,
-    delegateChunkSucceed = 1 << 17,
-    delegateChunkFail = 1 << 18,
-    delegateChunkComplete = 1 << 19,
-    delegateStartQueue = 1 << 20,
-    delegateClearQueue = 1 << 21,
-    delegateStopQueue = 1 << 22;
+    delegateFilter = 1 << 0,
+    delegateWillAdd = 1 << 1,
+    delegateAdd = 1 << 2,
+    delegateSubmit = 1 << 3,
+    delegateSend = 1 << 4,
+    delegateSucceed = 1 << 5,
+    delegateFail = 1 << 6,
+    delegateComplete = 1 << 7,
+    delegateAbort = 1 << 8,
+    delegateProgress = 1 << 9,
+    delegateOverallProgress = 1 << 10,
+    delegateStart = 1 << 11,
+    delegateStop = 1 << 12,
+    delegateChange = 1 << 13,
+    delegatePaste = 1 << 14,
+    delegateDrop = 1 << 15,
+    delegateDrag = 1 << 16,
+    delegateChunkWillSend = 1 << 17,
+    delegateChunkSucceed = 1 << 18,
+    delegateChunkFail = 1 << 19,
+    delegateChunkComplete = 1 << 20,
+    delegateStartQueue = 1 << 21,
+    delegateClearQueue = 1 << 22,
+    delegateStopQueue = 1 << 23;
 
 /*!
     @class JQueryFileUpload
@@ -212,7 +213,8 @@ var widgetId = @"JQueryFileUpload_input",
     int                 maxConcurrentUploads @accessors;
     CPView              dropTarget @accessors(readonly);
     JSObject            jQueryDropTarget;
-    JSObject            validFilenameRegex @accessors;
+    CPString            filenameFilter @accessors;
+    RegExp              filenameFilterRegex @accessors;
     BOOL                removeCompletedFiles @accessors;
 
     jQueryEvent         currentEvent @accessors(readonly);
@@ -311,6 +313,9 @@ var widgetId = @"JQueryFileUpload_input",
     if (!delegate)
         return;
 
+    if ([delegate respondsToSelector:@selector(fileUpload:didFilterFile:)])
+        delegateImplementsFlags |= delegateFilter;
+
     if ([delegate respondsToSelector:@selector(fileUpload:willAddFile:)])
         delegateImplementsFlags |= delegateWillAdd;
 
@@ -382,12 +387,64 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*!
-    Sets the regex used to validate filenames that are being added to the queue.
+    Sets the filter used to validate filenames that are being added to the queue.
     The string is passed to `new RegExp()`, so no delimiters should be included in the string.
 */
-- (void)setValidFilenameRegexWithString:(CPString)aString caseSensitive:(BOOL)caseSensitive
+- (void)setFilenameFilter:(CPString)aFilter
 {
-    validFilenameRegex = new RegExp(aString, caseSensitive ? "" : "i");
+    if (filenameFilter === aFilter)
+        return;
+
+    [self _setFilenameFilter:aFilter caseSensitive:YES];
+}
+
+/*!
+    Sets the filter used to validate filenames that are being added to the queue.
+    The string is passed to `new RegExp()`, so no delimiters should be included in the string.
+*/
+- (void)setFilenameFilter:(CPString)aFilter caseSensitive:(BOOL)caseSensitive
+{
+    [self willChangeValueForKey:@"filenameFilter"];
+
+    [self _setFilenameFilter:aFilter caseSensitive:caseSensitive];
+
+    [self didChangeValueForKey:@"filenameFilter"];
+}
+
+/*!
+    Sets the filter regex used to validate filenames that are being added to the queue.
+    The filenameFilter string is set to stay in sync with the regex.
+*/
+- (void)setFilenameFilterRegex:(RegExp)regex
+{
+    if (filenameFilterRegex.toString() === regex.toString())
+        return;
+
+    filenameFilterRegex = regex;
+
+    [self willChangeValueForKey:@"filenameFilter"];
+
+    if (regex)
+        filenameFilter = regex.toString().replace(/^\/(.*)\/(\w*)?$/, "$1");
+    else
+        filenameFilter = @"";
+
+    [self didChangeValueForKey:@"filenameFilter"];
+}
+
+/*!
+    Set the list of allowed filename extensions when adding.
+    This is just a convenience method that generates a filename filter.
+    Any existing filename filter will be replaced.
+*/
+- (void)setAllowedExtensions:(CPArray)extensions
+{
+    var filter = @"";
+
+    if ([extensions count])
+        filter = [CPString stringWithFormat:@"^.+\\.(%@)$", extensions.join("|")];
+
+    [self setFilenameFilter:filter caseSensitive:NO];
 }
 
 - (CPArrayController)queueController
@@ -495,8 +552,8 @@ var widgetId = @"JQueryFileUpload_input",
 {
     var canAdd = YES;
 
-    if (validFilenameRegex)
-        canAdd = validFilenameRegex.test(aFile.name);
+    if (filenameFilter)
+        canAdd = filenameFilterRegex.test(aFile.name);
 
     var file = [[JQueryFileUploadFile alloc] initWithUploader:self file:aFile data:currentData];
 
@@ -504,8 +561,13 @@ var widgetId = @"JQueryFileUpload_input",
     // the JQueryFileUploadFile object later from a File object.
     aFile.CPUID = [file UID];
 
-    if (canAdd && (delegateImplementsFlags & delegateWillAdd))
-        canAdd = [delegate fileUpload:self willAddFile:file];
+    if (canAdd)
+    {
+        if (delegateImplementsFlags & delegateWillAdd)
+            canAdd = [delegate fileUpload:self willAddFile:file];
+    }
+    else if (delegateImplementsFlags & delegateFilter)
+        [delegate fileUpload:self didFilterFile:file];
 
     if (canAdd)
     {
@@ -915,6 +977,17 @@ var widgetId = @"JQueryFileUpload_input",
     for (var key in callbacks)
         if (callbacks.hasOwnProperty(key))
             options[key] = callbacks[key];
+}
+
+- (void)_setFilenameFilter:(CPString)aFilter caseSensitive:(BOOL)caseSensitive
+{
+    filenameFilter = aFilter;
+
+    [self willChangeValueForKey:@"filenameFilterRegex"];
+
+    filenameFilterRegex = aFilter ? new RegExp(aFilter, caseSensitive ? "" : "i") : nil;
+
+    [self didChangeValueForKey:@"filenameFilterRegex"];
 }
 
 /*! @ignore */

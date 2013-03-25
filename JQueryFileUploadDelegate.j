@@ -32,6 +32,10 @@
 */
 @implementation JQueryFileUploadDelegate : CPObject
 
+- (void)fileUpload:(JQueryFileUpload)aFileUpload didFilterFile:(JQueryFileUploadFile)aFile
+{
+}
+
 - (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willAddFile:(JQueryFileUploadFile)aFile
 {
     return YES;
