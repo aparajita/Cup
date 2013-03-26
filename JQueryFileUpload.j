@@ -20,12 +20,11 @@
 
 @global jQuery
 
+JQueryFileUploadFileStatus_Pending   = 0;
+JQueryFileUploadFileStatus_Uploading = 1;
+JQueryFileUploadFileStatus_Complete  = 2;
 
-var FileStatus_Pending   = 0,
-    FileStatus_Uploading = 1,
-    FileStatus_Complete  = 2,
-
-    FileStatuses = [];
+var FileStatuses = [];
 
 /*!
     @class JQueryFileUploadFile
@@ -55,9 +54,12 @@ var FileStatus_Pending   = 0,
 
 + (void)initialize
 {
-    FileStatuses[FileStatus_Pending]   = @"Pending";
-    FileStatuses[FileStatus_Uploading] = @"Uploading...";
-    FileStatuses[FileStatus_Complete]  = @"Complete";
+    if (self !== [JQueryFileUpload class])
+        return;
+
+    FileStatuses[JQueryFileUploadFileStatus_Pending]   = @"Pending";
+    FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading...";
+    FileStatuses[JQueryFileUploadFileStatus_Complete]  = @"Complete";
 }
 
 /*!
@@ -71,7 +73,7 @@ var FileStatus_Pending   = 0,
     {
         uploader = anUploader;
         name = aFile.name;
-        status = FileStatus_Pending;
+        status = JQueryFileUploadFileStatus_Pending;
         uploading = NO;
         bitrate = 0.0;
         data = someData;
@@ -113,7 +115,7 @@ var FileStatus_Pending   = 0,
 
 - (void)submit
 {
-    [self setStatus:FileStatus_Uploading];
+    [self setStatus:JQueryFileUploadFileStatus_Uploading];
     [self setUploadedBytes:0];
 
     data.submit();
@@ -126,7 +128,7 @@ var FileStatus_Pending   = 0,
 
 - (void)stop
 {
-    [self setStatus:FileStatus_Pending];
+    [self setStatus:JQueryFileUploadFileStatus_Pending];
     [self setUploading:NO];
 
     data.abort();
@@ -213,6 +215,7 @@ var widgetId = @"JQueryFileUpload_input",
     int                 maxConcurrentUploads @accessors;
     CPView              dropTarget @accessors(readonly);
     JSObject            jQueryDropTarget;
+
     CPString            filenameFilter @accessors;
     RegExp              filenameFilterRegex @accessors;
     BOOL                removeCompletedFiles @accessors;
@@ -227,6 +230,8 @@ var widgetId = @"JQueryFileUpload_input",
 
     id                  delegate @accessors(readonly);
     int                 delegateImplementsFlags;
+
+    Class               fileClass;
 
     @outlet CPArrayController queueController @accessors(readonly);
 }
@@ -386,6 +391,17 @@ var widgetId = @"JQueryFileUpload_input",
         delegateImplementsFlags |= delegateDrag;
 }
 
+- (void)setFileClass:(Class)aClass
+{
+    if ([aClass isKindOfClass:[JQueryFileUploadFile class]])
+    {
+        fileClass = aClass;
+        [queueController setObjectClass:fileClass];
+    }
+    else
+        CPLog.warn("%s the file class must be a subclass of JQueryFileUploadFile.", [aClass className]);
+}
+
 /*!
     Sets the filter used to validate filenames that are being added to the queue.
     The string is passed to `new RegExp()`, so no delimiters should be included in the string.
@@ -455,7 +471,7 @@ var widgetId = @"JQueryFileUpload_input",
             queue = [];
 
         queueController = [[CPArrayController alloc] initWithContent:queue];
-        [queueController setObjectClass:[JQueryFileUploadFile class]];
+        [queueController setObjectClass:[fileClass class]];
         [queueController addObserver:self forKeyPath:@"content" options:0 context:nil];
     }
 
@@ -555,7 +571,7 @@ var widgetId = @"JQueryFileUpload_input",
     if (filenameFilter)
         canAdd = filenameFilterRegex.test(aFile.name);
 
-    var file = [[JQueryFileUploadFile alloc] initWithUploader:self file:aFile data:currentData];
+    var file = [[fileClass alloc] initWithUploader:self file:aFile data:currentData];
 
     // Tag the JS File object with the JQueryFileUploadFile UID so we can locate
     // the JQueryFileUploadFile object later from a File object.
@@ -660,7 +676,7 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (void)uploadDidSucceedForFile:(JQueryFileUploadFile)aFile
 {
-    [aFile setStatus:FileStatus_Complete];
+    [aFile setStatus:JQueryFileUploadFileStatus_Complete];
 
     // If a file upload is chunked and had one or more chunks,
     // the final progress was already set and when we get here
@@ -677,7 +693,7 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (void)uploadDidFailForFile:(JQueryFileUploadFile)aFile
 {
-    [aFile setStatus:FileStatus_Pending];
+    [aFile setStatus:JQueryFileUploadFileStatus_Pending];
 
     if (delegateImplementsFlags & delegateFail)
         [delegate fileUpload:self uploadDidFailForFile:aFile];
@@ -709,7 +725,7 @@ var widgetId = @"JQueryFileUpload_input",
     {
         var indexes = [queue indexesOfObjectsPassingTest:function(file)
                         {
-                            return [file status] === FileStatus_Complete;
+                            return [file status] === JQueryFileUploadFileStatus_Complete;
                         }];
 
         [queue removeObjectsAtIndexes:indexes];

@@ -163,7 +163,7 @@
 								<reference key="NSSupport" ref="604292540"/>
 								<string key="NSCellIdentifier">_NS:9</string>
 								<reference key="NSControlView" ref="629077935"/>
-								<int key="NSButtonFlags">-2034483200</int>
+								<int key="NSButtonFlags">-2034352128</int>
 								<int key="NSButtonFlags2">129</int>
 								<object class="NSCustomResource" key="NSNormalImage">
 									<string key="NSClassName">NSImage</string>
@@ -1183,62 +1183,19 @@
 				</object>
 				<object class="IBConnectionRecord">
 					<object class="IBBindingConnection" key="connection">
-						<string key="label">displayPatternValue1: objectValue.uploadedBytes</string>
-						<reference key="source" ref="797358174"/>
-						<reference key="destination" ref="870922992"/>
-						<object class="NSNibBindingConnector" key="connector" id="683791313">
-							<reference key="NSSource" ref="797358174"/>
-							<reference key="NSDestination" ref="870922992"/>
-							<string key="NSLabel">displayPatternValue1: objectValue.uploadedBytes</string>
-							<string key="NSBinding">displayPatternValue1</string>
-							<string key="NSKeyPath">objectValue.uploadedBytes</string>
-							<object class="NSDictionary" key="NSOptions">
-								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSArray" key="dict.sortedKeys">
-									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string>NSDisplayPattern</string>
-									<string>NSValueTransformerName</string>
-								</object>
-								<object class="NSArray" key="dict.values">
-									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string>%{value1}@ of %{value2}@</string>
-									<string>JQueryFileUploadByteCountTransformer</string>
-								</object>
-							</object>
-							<int key="NSNibBindingConnectorVersion">2</int>
-						</object>
-					</object>
-					<int key="connectionID">780</int>
-				</object>
-				<object class="IBConnectionRecord">
-					<object class="IBBindingConnection" key="connection">
-						<string key="label">displayPatternValue2: objectValue.size</string>
+						<string key="label">value: objectValue.progressText</string>
 						<reference key="source" ref="797358174"/>
 						<reference key="destination" ref="870922992"/>
 						<object class="NSNibBindingConnector" key="connector">
 							<reference key="NSSource" ref="797358174"/>
 							<reference key="NSDestination" ref="870922992"/>
-							<string key="NSLabel">displayPatternValue2: objectValue.size</string>
-							<string key="NSBinding">displayPatternValue2</string>
-							<string key="NSKeyPath">objectValue.size</string>
-							<object class="NSDictionary" key="NSOptions">
-								<bool key="EncodedWithXMLCoder">YES</bool>
-								<object class="NSArray" key="dict.sortedKeys">
-									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string>NSDisplayPattern</string>
-									<string>NSValueTransformerName</string>
-								</object>
-								<object class="NSArray" key="dict.values">
-									<bool key="EncodedWithXMLCoder">YES</bool>
-									<string>%{value1}@ of %{value2}@</string>
-									<string>JQueryFileUploadByteCountTransformer</string>
-								</object>
-							</object>
-							<reference key="NSPreviousConnector" ref="683791313"/>
+							<string key="NSLabel">value: objectValue.progressText</string>
+							<string key="NSBinding">value</string>
+							<string key="NSKeyPath">objectValue.progressText</string>
 							<int key="NSNibBindingConnectorVersion">2</int>
 						</object>
 					</object>
-					<int key="connectionID">782</int>
+					<int key="connectionID">798</int>
 				</object>
 				<object class="IBConnectionRecord">
 					<object class="IBBindingConnection" key="connection">
@@ -1599,6 +1556,7 @@
 							<reference ref="55408667"/>
 						</object>
 						<reference key="parent" ref="636536012"/>
+						<string key="objectName">JQueryFileUploadTableCellView</string>
 					</object>
 					<object class="IBObjectRecord">
 						<int key="objectID">681</int>
@@ -1869,7 +1827,7 @@
 				<reference key="dict.values" ref="0"/>
 			</object>
 			<nil key="sourceID"/>
-			<int key="maxID">795</int>
+			<int key="maxID">798</int>
 		</object>
 		<object class="IBClassDescriber" key="IBDocument.Classes">
 			<object class="NSMutableArray" key="referencedPartialClassDescriptions">

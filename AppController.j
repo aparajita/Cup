@@ -24,6 +24,7 @@
 
 - (void)awakeFromCib
 {
+    [upload setFileClass:[UploadFile class]];
     [upload setURL:@"http://dev.upload.com/index.php"];
     [upload setDropTarget:[testWindow contentView]];
     [upload setMaximumChunkSize:50000];
@@ -51,6 +52,8 @@
 - (void)fileUpload:(JQueryFileUpload)aFileUpload didAddFile:(JQueryFileUploadFile)aFile
 {
     console.log("%s %s", _cmd, [aFile description]);
+
+    [aFile updateProgressText];
 }
 
 - (BOOL)fileUpload:(JQueryFileUpload)aFileUpload willSubmitFile:(JQueryFileUploadFile)aFile
@@ -78,6 +81,8 @@
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadDidCompleteForFile:(JQueryFileUploadFile)aFile
 {
     console.log("%s %s", _cmd, [aFile description]);
+
+    [aFile updateProgressText];
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadWasAbortedForFile:(JQueryFileUploadFile)aFile
@@ -90,11 +95,14 @@
                        otherButton:nil
          informativeTextWithFormat:@""] runModal];
 
+    [aFile updateProgressText];
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadForFile:(JQueryFileUploadFile)aFile didProgress:(JSObject)progress
 {
     console.log("%s %s: %s", _cmd, [aFile description], CPDescriptionOfObject(progress));
+
+    [aFile updateProgressText];
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgressOverall:(JSObject)progress
@@ -166,6 +174,44 @@
 - (void)fileUpload:(JQueryFileUpload)aFileUpload chunkDidCompleteForFile:(JQueryFileUploadFile)aFile
 {
     console.log("%s %s", _cmd, [aFile description]);
+}
+
+@end
+
+
+var transformer = nil;
+
+@implementation UploadFile : JQueryFileUploadFile
+{
+    CPString progressText @accessors;
+}
+
++ (void)initialize
+{
+    if (self !== [UploadFile class])
+        return;
+
+    transformer = [JQueryFileUploadByteCountTransformer new];
+}
+
+- (id)initWithUploader:(JQueryFileUpload)anUploader file:(JSObject)aFile data:(JSObject)someData
+{
+    if (self = [super initWithUploader:anUploader file:aFile data:someData])
+        progressText = @"";
+
+    return self;
+}
+
+- (CPString)updateProgressText
+{
+    var text;
+
+    if (status === JQueryFileUploadFileStatus_Complete)
+        text = @"Complete";
+    else
+        text = [CPString stringWithFormat:@"%@ of %@", [transformer transformedValue:uploadedBytes], [transformer transformedValue:size]];
+
+    [self setProgressText:text];
 }
 
 @end
