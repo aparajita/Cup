@@ -769,6 +769,8 @@ var widgetId = @"JQueryFileUpload_input",
     if (queue === nil)
         queue = [];
 
+    fileClass = [JQueryFileUploadFile class];
+
     URL = URL || @"";
     redirectURL = @"";
     sequential = YES;
