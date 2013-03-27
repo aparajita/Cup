@@ -16,7 +16,6 @@
 @import <AppKit/CPPlatformWindow.j>
 
 @import "JQueryFileUploadByteCountTransformer.j"
-@import "jQueryFileUploadTableCellView.j"
 
 @global jQuery
 
@@ -160,8 +159,8 @@ var widgetId = @"JQueryFileUpload_input",
     delegateFail = 1 << 6,
     delegateComplete = 1 << 7,
     delegateAbort = 1 << 8,
-    delegateProgress = 1 << 9,
-    delegateOverallProgress = 1 << 10,
+    delegateFileProgress = 1 << 9,
+    delegateProgress = 1 << 10,
     delegateStart = 1 << 11,
     delegateStop = 1 << 12,
     delegateChange = 1 << 13,
@@ -192,7 +191,7 @@ var widgetId = @"JQueryFileUpload_input",
     uploading           A BOOL set to YES during uploading
     indeterminate       A BOOL that indicates whether the total size of the upload
                         queue is known. This affects what is reported in the progress callbacks.
-    overallProgress     A dictionary with the following items:
+    progress            A dictionary with the following items:
                             uploaded        Number of bytes uploaded so far
                             total           Total number of bytes to be uploaded. If indeterminate
                                             is YES, this is undefined.
@@ -213,7 +212,7 @@ var widgetId = @"JQueryFileUpload_input",
     BOOL                sequential @accessors;
     int                 maximumChunkSize @accessors;
     int                 maxConcurrentUploads @accessors;
-    CPView              dropTarget @accessors(readonly);
+    @outlet CPView      dropTarget @accessors(readonly);
     JSObject            jQueryDropTarget;
 
     CPString            filenameFilter @accessors;
@@ -226,9 +225,9 @@ var widgetId = @"JQueryFileUpload_input",
     CPMutableArray      queue @accessors;
     BOOL                uploading @accessors;
     BOOL                indeterminate @accessors;
-    CPMutableDictionary overallProgress @accessors;
+    CPMutableDictionary progress @accessors;
 
-    id                  delegate @accessors(readonly);
+    @outlet id          delegate @accessors(readonly);
     int                 delegateImplementsFlags;
 
     Class               fileClass;
@@ -349,10 +348,10 @@ var widgetId = @"JQueryFileUpload_input",
         delegateImplementsFlags |= delegateChunkComplete;
 
     if ([delegate respondsToSelector:@selector(fileUpload:uploadForFile:didProgress:)])
-        delegateImplementsFlags |= delegateProgress;
+        delegateImplementsFlags |= delegateFileProgress;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadsDidProgressOverall:)])
-        delegateImplementsFlags |= delegateOverallProgress;
+    if ([delegate respondsToSelector:@selector(fileUpload:uploadsDidProgress:)])
+        delegateImplementsFlags |= delegateProgress;
 
     if ([delegate respondsToSelector:@selector(fileUpload:uploadDidSucceedForFile:)])
         delegateImplementsFlags |= delegateSucceed;
@@ -391,8 +390,17 @@ var widgetId = @"JQueryFileUpload_input",
         delegateImplementsFlags |= delegateDrag;
 }
 
-- (void)setFileClass:(Class)aClass
+/*!
+    Sets the class for the objects stored in the upload queue.
+    The class must be JQueryFileUploadFile or a subclass thereof.
+
+    @param aClass Either a class object or a string name of a class
+*/
+- (void)setFileClass:(id)aClass
 {
+    if ([aClass isKindOfClass:[CPString class]])
+        aClass = CPClassFromString(aClass);
+
     if ([aClass isKindOfClass:[JQueryFileUploadFile class]])
     {
         fileClass = aClass;
@@ -449,16 +457,29 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*!
-    Set the list of allowed filename extensions when adding.
+    Set the list of allowed filename extensions (with or without dots) when adding.
     This is just a convenience method that generates a filename filter.
     Any existing filename filter will be replaced.
+
+    @param extensions   Maybe either an array of extensions or a whitespace-delimited list
+                        in a single string.
 */
-- (void)setAllowedExtensions:(CPArray)extensions
+- (void)setAllowedExtensions:(id)extensions
 {
     var filter = @"";
 
-    if ([extensions count])
+    if (extensions)
+    {
+        if ([extensions isKindOfClass:[CPString class]])
+            extensions = extensions.split(/\s+/);
+
+        [extensions enumerateObjectsUsingBlock:function(extension)
+            {
+                extension = extension.replace(/^\./, "");
+            }];
+
         filter = [CPString stringWithFormat:@"^.+\\.(%@)$", extensions.join("|")];
+    }
 
     [self setFilenameFilter:filter caseSensitive:NO];
 }
@@ -528,7 +549,7 @@ var widgetId = @"JQueryFileUpload_input",
 
     [queue removeAllObjects];
     [[self queueController] setContent:queue];
-    [self resetOverallProgressZeroingTotal:YES];
+    [self resetProgressZeroingTotal:YES];
 
     if (delegateImplementsFlags & delegateClearQueue)
         [delegate fileUploadDidClearQueue:self];
@@ -558,7 +579,7 @@ var widgetId = @"JQueryFileUpload_input",
     if (aKeyPath === @"content")
     {
         // If a file is added or removed from the content, reset the overall progress to zero.
-        [self resetOverallProgressZeroingTotal:NO];
+        [self resetProgressZeroingTotal:NO];
     }
 }
 
@@ -652,26 +673,26 @@ var widgetId = @"JQueryFileUpload_input",
         [delegate fileUpload:self chunkDidCompleteForFile:aFile];
 }
 
-- (void)uploadForFile:(JQueryFileUploadFile)aFile didProgress:(JSObject)progress
+- (void)uploadForFile:(JQueryFileUploadFile)aFile didProgress:(JSObject)fileProgress
 {
-    if (progress.uploadedBytes)
-        [aFile setUploadedBytes:progress.uploadedBytes];
+    if (fileProgress.uploadedBytes)
+        [aFile setUploadedBytes:fileProgress.uploadedBytes];
 
-    [aFile setBitrate:progress.bitrate];
+    [aFile setBitrate:fileProgress.bitrate];
 
-    if (delegateImplementsFlags & delegateProgress)
-        [delegate fileUpload:self uploadForFile:aFile didProgress:progress];
+    if (delegateImplementsFlags & delegateFileProgress)
+        [delegate fileUpload:self uploadForFile:aFile didProgress:fileProgress];
 }
 
-- (void)overallUploadDidProgress:(JSObject)progress
+- (void)uploadsDidProgress:(JSObject)overallProgress
 {
-    [self updateOverallProgressWithUploadedBytes:progress.uploadedBytes
-                                           total:progress.total
-                                 percentComplete:progress.uploadedBytes / progress.total * 100
-                                         bitrate:progress.bitrate];
+    [self updateProgressWithUploadedBytes:overallProgress.uploadedBytes
+                                           total:overallProgress.total
+                                 percentComplete:overallProgress.uploadedBytes / overallProgress.total * 100
+                                         bitrate:overallProgress.bitrate];
 
-    if (delegateImplementsFlags & delegateOverallProgress)
-        [delegate fileUpload:self uploadsDidProgressOverall:progress];
+    if (delegateImplementsFlags & delegateProgress)
+        [delegate fileUpload:self uploadsDidProgress:overallProgress];
 }
 
 - (void)uploadDidSucceedForFile:(JQueryFileUploadFile)aFile
@@ -775,12 +796,12 @@ var widgetId = @"JQueryFileUpload_input",
     redirectURL = @"";
     sequential = YES;
     maxConcurrentUploads = 0;
-    overallProgress = [CPMutableDictionary dictionary];
+    progress = [CPMutableDictionary dictionary];
     dropTarget = [CPPlatformWindow primaryPlatformWindow];
     jQueryDropTarget = jQuery(document);
     removeCompletedFiles = NO;
 
-    [self resetOverallProgressZeroingTotal:YES];
+    [self resetProgressZeroingTotal:YES];
     [self setUploading:NO];
     [self setIndeterminate:!CPFeatureIsCompatible(CPFileAPIFeature)];
 
@@ -882,13 +903,13 @@ var widgetId = @"JQueryFileUpload_input",
                 currentEvent = e;
                 currentData = data;
 
-                var progress = {
+                var fileProgress = {
                     uploadedBytes:  data.uploadedBytes,
                     total:          data.total,
                     bitrate:        data.bitrate
                 };
 
-                [self uploadForFile:[self fileFromJSFile:data.files[0]] didProgress:progress];
+                [self uploadForFile:[self fileFromJSFile:data.files[0]] didProgress:fileProgress];
                 [self pumpRunLoop];
             },
 
@@ -897,13 +918,13 @@ var widgetId = @"JQueryFileUpload_input",
                 currentEvent = e;
                 currentData = data;
 
-                var progress = {
+                var overallProgress = {
                     uploadedBytes:  data.loaded,
                     total:          data.total,
                     bitrate:        data.bitrate
                 };
 
-                [self overallUploadDidProgress:progress];
+                [self uploadsDidProgress:overallProgress];
                 [self pumpRunLoop];
             },
 
@@ -1060,24 +1081,34 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*! @ignore */
-- (void)updateOverallProgressWithUploadedBytes:(int)uploadedBytes total:(int)total percentComplete:(float)percentComplete bitrate:(int)bitrate
+- (void)updateProgressWithUploadedBytes:(int)uploadedBytes total:(int)total percentComplete:(float)percentComplete bitrate:(int)bitrate
 {
     // Allow bindings to see the change in the dictionary values
-    [self willChangeValueForKey:@"overallProgress"];
+    [self willChangeValueForKey:@"progress"];
 
-    [overallProgress setValue:uploadedBytes forKey:@"uploadedBytes"];
-    [overallProgress setValue:total forKey:@"total"];
-    [overallProgress setValue:percentComplete forKey:@"percentComplete"];
-    [overallProgress setValue:bitrate forKey:@"bitrate"];
+    [progress setValue:uploadedBytes forKey:@"uploadedBytes"];
+    [progress setValue:total forKey:@"total"];
+    [progress setValue:percentComplete forKey:@"percentComplete"];
+    [progress setValue:bitrate forKey:@"bitrate"];
 
-    [self didChangeValueForKey:@"overallProgress"];
+    [self didChangeValueForKey:@"progress"];
 }
 
 /*! @ignore */
-- (void)resetOverallProgressZeroingTotal:(BOOL)zeroTotal
+- (void)resetProgressZeroingTotal:(BOOL)zeroTotal
 {
-    var total = zeroTotal ? 0 : [overallProgress valueForKey:@"total"];
-    [self updateOverallProgressWithUploadedBytes:0 total:total percentComplete:0.0 bitrate:0];
+    var total = zeroTotal ? 0 : [progress valueForKey:@"total"];
+    [self updateProgressWithUploadedBytes:0 total:total percentComplete:0.0 bitrate:0];
+}
+
+@end
+
+
+@implementation JQueryFileUploadTableCellView : CPTableCellView
+
+- (@action)stopUpload:(id)sender
+{
+    [[self objectValue] abort];
 }
 
 @end

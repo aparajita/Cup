@@ -80,7 +80,7 @@
 {
 }
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgressOverall:(JSObject)progress
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgress:(JSObject)progress
 {
 }
 

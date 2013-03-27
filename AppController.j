@@ -2,8 +2,8 @@
  * AppController.j
  * upload
  *
- * Created by You on February 3, 2013.
- * Copyright 2013, Your Company All rights reserved.
+ * Created by Aparajita Fishman on February 3, 2013.
+ * Copyright 2013, Filmworkers Club. All rights reserved.
  */
 
 @import <Foundation/CPObject.j>
@@ -14,22 +14,8 @@
 
 @implementation AppController : CPObject
 {
-    @outlet CPWindow            testWindow;
+    @outlet CPWindow            theWindow;
     @outlet JQueryFileUpload    upload;
-}
-
-- (void)applicationDidFinishLaunching:(CPNotification)aNotification
-{
-}
-
-- (void)awakeFromCib
-{
-    [upload setFileClass:[UploadFile class]];
-    [upload setURL:@"http://dev.upload.com/index.php"];
-    [upload setDropTarget:[testWindow contentView]];
-    [upload setMaximumChunkSize:50000];
-    [upload setDelegate:self];
-    [upload setAllowedExtensions:["pdf", "png", "jpg"]];
 }
 
 - (void)fileUpload:(JQueryFileUpload)aFileUpload didFilterFile:(JQueryFileUploadFile)aFile
@@ -105,7 +91,7 @@
     [aFile updateProgressText];
 }
 
-- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgressOverall:(JSObject)progress
+- (void)fileUpload:(JQueryFileUpload)aFileUpload uploadsDidProgress:(JSObject)progress
 {
     console.log("%s %s", _cmd, CPDescriptionOfObject(progress));
 }
