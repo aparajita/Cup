@@ -14,8 +14,7 @@
 @import <AppKit/CPCompatibility.j>
 @import <AppKit/CPPlatform.j>
 @import <AppKit/CPPlatformWindow.j>
-
-@import "JQueryFileUploadByteCountTransformer.j"
+@import <AppKit/CPTableView.j>
 
 @global jQuery
 
@@ -53,11 +52,11 @@ var FileStatuses = [];
 
 + (void)initialize
 {
-    if (self !== [JQueryFileUpload class])
+    if (self !== [JQueryFileUploadFile class])
         return;
 
     FileStatuses[JQueryFileUploadFileStatus_Pending]   = @"Pending";
-    FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading...";
+    FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading";
     FileStatuses[JQueryFileUploadFileStatus_Complete]  = @"Complete";
 }
 
@@ -147,7 +146,6 @@ var FileStatuses = [];
 
 @end
 
-
 var widgetId = @"JQueryFileUpload_input",
     callbacks = nil,
     delegateFilter = 1 << 0,
@@ -233,6 +231,13 @@ var widgetId = @"JQueryFileUpload_input",
     Class               fileClass;
 
     @outlet CPArrayController queueController @accessors(readonly);
+}
+
++ (CPString)version
+{
+    var bundle = [CPBundle bundleForClass:[self class]];
+
+    return [bundle objectForInfoDictionaryKey:@"CPBundleVersion"];
 }
 
 #pragma mark Initialization
@@ -1131,4 +1136,4 @@ var cloneOptions = function(options)
                 clone[key] = options[key];
 
     return clone;
-}
+};

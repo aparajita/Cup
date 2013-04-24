@@ -2,9 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Main cib file base name</key>
-	<string>MainMenu.cib</string>
-	<key>CPBundleName</key>
-	<string>upload</string>
+    <key>CPBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CPBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CPBundleIdentifier</key>
+    <string>com.filmworkers.jqueryfileupload</string>
+    <key>CPPrincipalClass</key>
+    <string>JQueryFileUpload</string>
 </dict>
 </plist>
