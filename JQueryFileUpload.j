@@ -215,6 +215,7 @@ var widgetId = @"JQueryFileUpload_input",
 
     CPString            filenameFilter @accessors;
     RegExp              filenameFilterRegex @accessors;
+    BOOL                autoUpload @accessors;
     BOOL                removeCompletedFiles @accessors;
 
     jQueryEvent         currentEvent @accessors(readonly);
@@ -617,6 +618,9 @@ var widgetId = @"JQueryFileUpload_input",
 
         if (delegateImplementsFlags & delegateAdd)
             [delegate fileUpload:self didAddFile:file];
+
+        if (autoUpload)
+            [file submit];
     }
 }
 
