@@ -29,7 +29,7 @@ var ByteCountTransformerSharedFormatter = nil;
     +sharedFormatter method.
 
     If you want to change the properties of the formatter for a specific transformer instance,
-    you can either create a new CPByteCountFormatter yourself and use the -setFormatter method,
+    you can either create a new CPByteCountFormatter yourself and use the -setFormatter: method,
     or use the -formatter method, which will return a new instance of CPByteCountFormatter that
     belongs to the transformer instance. You can then set the properties of the returned formatter
     as you wish.

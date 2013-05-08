@@ -22,150 +22,14 @@ JQueryFileUploadFileStatus_Pending   = 0;
 JQueryFileUploadFileStatus_Uploading = 1;
 JQueryFileUploadFileStatus_Complete  = 2;
 
+/*
+    These constants are bit flags passed to the fileUpload:didFilterFile:because:
+    delegate method, indicating why the file was rejected.
+*/
 JQueryFileUploadFilteredName = 1 << 0;
 JQueryFileUploadFilteredSize = 1 << 1;
 
 var FileStatuses = [];
-
-/*!
-    @class JQueryFileUploadFile
-
-    A wrapper for the File API (https://developer.mozilla.org/en/DOM/file)
-    that allows the values to be used in bindings.
-
-    These objects are stored in the JQueryFileUpload queue controller,
-    thus you can bind through the queue controller's arranged objects or
-    selection to properties of this class.
-
-    This class exposes the following read only bindings:
-
-    name            The filename of the file
-    size            The file's size in bytes
-    type            The file's mime type
-    status          One of the JQueryFileUploadStatus constants above
-    uploading       A BOOL set to YES during uploading
-    uploadedBytes   The number of bytes uploaded so far for this file
-    bitrate         The upload bitrate for this file
-    percentComplete An integer from 0-100 representing the percentage of the file
-                    that has been uploaded so far
-    indeterminate   A BOOL that indicates whether the total size of the file
-                    is known. This affects what is reported in the progress callbacks.
-    data            The Javascript data object used by jQuery-File-Upload
-*/
-@implementation JQueryFileUploadFile : CPObject
-{
-    JQueryFileUpload    uploader;
-    CPString            name @accessors(readonly);
-    int                 size @accessors(readonly);
-    CPString            type @accessors(readonly);
-    int                 status @accessors;
-    BOOL                uploading @accessors;
-    int                 uploadedBytes @accessors;
-    float               bitrate @accessors;
-    BOOL                indeterminate @accessors(readonly);
-    JSObject            data @accessors;
-}
-
-+ (void)initialize
-{
-    if (self !== [JQueryFileUploadFile class])
-        return;
-
-    FileStatuses[JQueryFileUploadFileStatus_Pending]   = @"Pending";
-    FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading";
-    FileStatuses[JQueryFileUploadFileStatus_Complete]  = @"Complete";
-}
-
-+ (CPSet)keyPathsForValuesAffectingPercentComplete
-{
-    return [CPSet setWithObjects:@"uploadedBytes"];
-}
-
-/*!
-    Designated initializer.
-
-    Init with a Javascript File object and jQuery-File-upload data.
-*/
-- (id)initWithUploader:(JQueryFileUpload)anUploader file:(JSObject)aFile data:(JSObject)someData
-{
-    if (self = [super init])
-    {
-        uploader = anUploader;
-        name = aFile.name;
-        status = JQueryFileUploadFileStatus_Pending;
-        uploading = NO;
-        bitrate = 0.0;
-        data = someData;
-
-        if (aFile.hasOwnProperty("size"))
-        {
-            size = aFile.size;
-            type = aFile.type;
-            indeterminate = NO;
-        }
-        else
-        {
-            size = 0;
-            type = @"";
-            indeterminate = YES;
-        }
-    }
-
-    return self;
-}
-
-/*!
-    Return the upload percentage as a number from 0-100.
-    Returns zero if indeterminate == YES.
-*/
-- (int)percentComplete
-{
-    return indeterminate ? 0 : FLOOR(uploadedBytes / size * 100);
-}
-
-/*!
-    Submit this file for uploading. This will in turn trigger the relevant
-    methods in JQueryFileUploader and its delegate.
-*/
-- (void)submit
-{
-    [self setStatus:JQueryFileUploadFileStatus_Uploading];
-    [self setUploadedBytes:0];
-
-    data.submit();
-}
-
-/*!
-    Notifies the file that it has actually started uploading.
-    Normally you would not need to call this method, it is called
-    by JQueryFileUploader when necessary.
-*/
-- (void)start
-{
-    [self setUploading:YES];
-}
-
-/*!
-    Stops the upload for the file and notifies the delegate. Use this method
-    to stop a single file within the queue without stopping the entire queue.
-*/
-- (void)stop
-{
-    [self setStatus:JQueryFileUploadFileStatus_Pending];
-    [self setUploading:NO];
-
-    data.abort();
-
-    [uploader uploadWasStoppedForFile:self];
-}
-
-- (CPString)description
-{
-    return [CPString stringWithFormat:@"%@ \"%@\", size=%d, type=%s, uploadedBytes=%d, status=%s", [super description], name, size, type, uploadedBytes, FileStatuses[status]];
-}
-
-@end
-
 
 var widgetId = @"JQueryFileUpload_input",
     callbacks = nil,
@@ -197,16 +61,16 @@ var widgetId = @"JQueryFileUpload_input",
 /*!
     @class JQueryFileUpload
 
-    A wrapper for jQuery-File-Upload. The main configuration options
+    A wrapper for jQuery File Upload. The main configuration options
     are available as accessor methods in this class. If other options
     need to be set, use the options and setOptions: methods.
 
     NOTE: The singleFileUpload option is not supported, it is always set to true.
 
-    The full set of callbacks supported by jQuery-File-Upload are provided as delegate methods.
+    The full set of callbacks supported by jQuery File Upload are provided as delegate methods.
     See the jQueryFileUploadDelegate class for more info.
 
-    This class exposes many outlets, actions, bindings and properties that are useful when
+    This class exposes many KVO compliant properties, outlets and actions that are useful when
     creating interfaces that use this class. If you plan to create an interface using JQueryFileUpload
     in Xcode, you will get the most out of it by doing the following:
 
@@ -218,111 +82,14 @@ var widgetId = @"JQueryFileUpload_input",
     - Connect the queueController outlet of the JQueryFileUpload object to the array controller.
 
     Once you have done this, you can bind directly to properties in the JQueryFileUpload object
-    and to the arranged objects and selection of the array controller.
-
-    -------
-    Outlets
-    -------
-    dropTarget          Files can be added to the queue by dragging and dropping.
-                        By default the entire browser window is the drop target for files.
-                        You can connect this outlet to any view (including Cappuccino windows)
-                        to specify the drop target.
-
-    delegate            JQueryFileUpload communicates with its delegate extensively. You can
-                        connect this outlet to the object that acts as the delegate.
-
-    queueController     An array controller used to manage the upload queue.
-
-    -------
-    Actions
-    -------
-    addFiles            Presents an open file dialog to add one or more files to the upload queue.
-
-    start               Starts all files in the upload queue.
-
-    stop                Stops all files in the upload queue.
-
-    clearQueue          Clears all files from the upload queue. If an upload is in progress, does nothing.
+    and to the arrangedObjects and selection of the array controller.
 
     ----------
     Properties
     ----------
-    Where noted, the properties in this class mirror the options in jQuery-File-Upload, which are
-    documented here: https://github.com/blueimp/jQuery-File-Upload/wiki/Options. Except where
+    Where noted, the properties in this class mirror the options in jQuery File Upload, which are
+    documented here: https://github.com/blueimp/jQuery File Upload/wiki/Options. Except where
     noted, the properties are read-write, and where the type is suitable, can be used with bindings.
-
-    uploading               A BOOL set to YES during uploading. (read-only)
-
-    indeterminate           A BOOL that indicates whether the total size of the upload queue is known.
-                            This affects what is reported in the progress callbacks. (read-only)
-
-    progress                A dictionary which contains info on the overall progress of the upload.
-                            The dictionary contains the following items:
-
-                                uploadedBytes   Number of bytes uploaded so far
-                                total           Total number of bytes to be uploaded. If indeterminate
-                                                is YES, this is undefined.
-                                percentComplete Integer percentage of the total (0-100) uploaded so far
-                                bitrate         The overall bitrate of the upload so far
-
-                            As usual, you can bind to items within the dictionary.
-                            (read-only)
-
-    URL                     A string representing the URL to which files will be uploaded.
-                            jQuery File Upload option: url.
-
-    redirectURL             A string. jQuery File Upload option: redirect.
-
-    sequential              A BOOL indicating whether multiple uploads will be performed sequentially
-                            or concurrently. YES by default. jQuery File Upload option: sequentialuploads.
-
-    maxChunkSize            If non-zero, uploads will be chunked. This is definitely preferable
-                            if you plan on supporting large files. jQuery File Upload option: maxchunksize.
-
-    maxConcurrentUploads    An int which limits the number of concurrent uploads when sequential is NO.
-                            jQuery File Upload option: limitconcurrentuploads.
-
-    progressInterval        The minimum time interval in milliseconds to calculate and trigger progress events.
-                            jQuery File Upload option: progressInterval.
-
-    filenameFilter          A string regular expression suitable for use with the Javascript RegExp constructor.
-                            When adding files to the queue, filenames that do not match regex are rejected.
-                            Setting this property updates the filenameFilterRegex property.
-
-    filenameFilterRegex     A Javascript regular expression. When adding files, filenames that do not match the
-                            are rejected. Setting this property updates the filenameFilter property.
-
-    allowedExtensions       This write-only property should be a space-delimited string with one or more
-                            filename extensions (with or without dots). Setting this property constructs a RegExp
-                            which allows filenames that end with the given extensions and sets the filenameFilter
-                            and filenameFilterRegex properties accordingly.
-
-    maxFileSize             An int representing the maximum size of a file that can be added to the queue.
-                            Only supported on browsers that support the File API.
-
-    autoUpload              A BOOL that indicates whether files added to the queue should immediately
-                            start uploading. Defaults to NO.
-
-    removeCompletedFiles    A BOOL that indicates whether files that have successfully uploaded should be
-                            removed from the queue. Defaults to NO.
-
-    currentEvent            The most recent jQuery event (NOT Cappuccino event) which triggered a method.
-                            Usually this is of no interest, but if for some reason delegates want it,
-                            they can retrieve it through this property. (read-only)
-
-    currentData             When a jQuery File Upload callback is triggered (which then calls a JQueryFileUpload
-                            method), in most cases a data object is passed that reflects the current state. The
-                            most relevant fields within that object are copied to the Cappuccino state, so usually
-                            you will have no need for this. Delegates may use this method to retrieve the data passed
-                            from the most recent callback. (read-only)
-
-    queue                   The array of JQueryFileUploadFile objects used to represent the queue. In most cases
-                            you should consider this read only and manipulate the queue through its array controller.
-
-    fileClass               The class of the objects stored in the queue. May be set either with a class or a string
-                            class name, which allows you to set the class in Xcode either through User Defined Runtime
-                            Attributes or bindings. This is useful if you want to add custom properties or methods to
-                            the file objects.
 
     Most of the read-write properties can be set in Xcode:
 
@@ -339,10 +106,111 @@ var widgetId = @"JQueryFileUpload_input",
     Key Path: URL
     Type:     String
     Value:    http://myserver.com/upload
+
+    Name                    Description
+    ---------------------   -----------------------------------------------------------------------------
+    uploading               A BOOL set to YES during uploading. (read-only)
+
+    indeterminate           A BOOL that indicates whether the total size of the upload queue is known.
+                            This affects what is reported in the progress callbacks. This will be YES
+                            if the browser does not support the File API. (read-only)
+
+    progress                A dictionary which contains info on the overall progress of the upload.
+                            The dictionary contains the following items:
+
+                                uploadedBytes   Number of bytes uploaded so far.
+                                total           Total number of bytes to be uploaded. If indeterminate
+                                                is YES, this is zero.
+                                percentComplete Integer percentage of the total (0-100) uploaded so far.
+                                                If indeterminate is YES, this is zero.
+                                bitrate         The overall bitrate of the upload so far.
+
+                            As usual, you can bind to items within the dictionary.
+                            (read-only)
+
+    URL                     A string representing the URL to which files will be uploaded.
+                            jQuery File Upload option: url.
+
+    redirectURL             A string. jQuery File Upload option: redirect.
+
+    sequential              A BOOL indicating whether multiple uploads will be performed sequentially
+                            or concurrently. YES by default. jQuery File Upload option: sequentialUploads.
+
+    maxChunkSize            If non-zero, uploads will be chunked. This is definitely preferable
+                            if you plan on supporting large files. jQuery File Upload option: maxChunkSize.
+
+    maxConcurrentUploads    An int which limits the number of concurrent uploads when sequential is NO.
+                            jQuery File Upload option: limitConcurrentUploads.
+
+    progressInterval        The minimum time interval in milliseconds to calculate and trigger progress events.
+                            jQuery File Upload option: progressInterval.
+
+    filenameFilter          A string regular expression suitable for use with the Javascript RegExp constructor.
+                            When adding files to the queue, filenames that do not match regex are rejected.
+                            Setting this property updates the filenameFilterRegex property.
+
+    filenameFilterRegex     A Javascript regular expression. When adding files, filenames that do not match
+                            are rejected. Setting this property updates the filenameFilter property.
+
+    allowedExtensions       This write-only property should be a space-delimited string (e.g. "jpg png gif")
+                            with one or more filename extensions (with or without dots). Setting this property
+                            constructs a RegExp which allows filenames that end with the given extensions and
+                            sets the filenameFilter and filenameFilterRegex properties accordingly.
+
+    maxFileSize             An int representing the maximum size of a file that can be added to the queue.
+                            Only supported on browsers that support the File API.
+
+    autoUpload              A BOOL that indicates whether files added to the queue should immediately
+                            start uploading. Defaults to NO.
+
+    removeCompletedFiles    A BOOL that indicates whether files that have successfully uploaded should be
+                            removed from the queue. Defaults to NO.
+
+    currentEvent            The most recent jQuery event (NOT Cappuccino event) which triggered a method.
+                            Usually this is of no interest, but if for some reason delegates want it,
+                            they can retrieve it through this property. (read-only)
+
+    currentData             When a jQuery File Upload callback is triggered (which eventually calls a JQueryFileUpload
+                            delegate method), in most cases a data object is passed that reflects the current state.
+                            The most relevant fields within that object are copied to the Cappuccino state, so usually
+                            you will have no need for this. Delegates may use this method to retrieve the data passed
+                            from the most recent callback. (read-only)
+
+    queue                   The array of JQueryFileUploadFile objects used to represent the queue. In most cases
+                            you should consider this read-only and manipulate the queue through its array controller.
+
+    fileClass               The class of the objects stored in the queue. May be set either with a class or a string
+                            class name, which allows you to set the class in Xcode either through User Defined Runtime
+                            Attributes or bindings. This is useful if you want to add custom properties or methods to
+                            the file objects. Must be JQueryFileUploadFile or a subclass thereof.
+
+    -------
+    Outlets
+    -------
+    dropTarget          Files can be added to the queue by dragging and dropping.
+                        By default the entire browser window is the drop target for files.
+                        You can connect this outlet to any view (including Cappuccino windows)
+                        to specify the drop target.
+
+    delegate            JQueryFileUpload communicates with its delegate extensively. You can
+                        connect this outlet to the object that acts as the delegate.
+
+    queueController     The array controller used to manage the upload queue.
+
+    -------
+    Actions
+    -------
+    addFiles:           Presents an open file dialog to add one or more files to the upload queue.
+
+    start:              Starts all files in the upload queue.
+
+    stop:               Stops all files in the upload queue.
+
+    clearQueue:         Clears all files from the upload queue. If an upload is in progress, does nothing.
 */
 @implementation JQueryFileUpload : CPObject
 {
-    // jQuery-File-Upload options
+    // jQuery File Upload options
     JSObject            fileUploadOptions;
     CPString            URL @accessors;
     CPString            redirectURL @accessors;
@@ -425,7 +293,7 @@ var widgetId = @"JQueryFileUpload_input",
 #pragma mark Attributes
 
 /*!
-    Returns a copy of the options passed to jQuery-File-Upload.
+    Returns a copy of the options passed to jQuery File Upload.
     To set the options from your copy, use setOptions:.
 */
 - (JSObject)options
@@ -435,7 +303,8 @@ var widgetId = @"JQueryFileUpload_input",
 
 /*!
     Sets the options to a copy of the passed in options.
-    Callbacks and dropZone are ignored.
+    Callbacks and dropZone are ignored. Options that are mirrored in this class
+    will be set in a KVO compliant way.
 */
 - (void)setOptions:(JSObject)options
 {
@@ -625,11 +494,11 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*!
-    Set the list of allowed filename extensions (with or without dots) when adding.
-    This is just a convenience method that generates a filename filter.
+    Sets the list of allowed filename extensions (with or without dots) when adding files.
+    This is just a convenience method that generates a filename filter regex.
     Any existing filename filter will be replaced.
 
-    @param extensions   Maybe either an array of extensions or a whitespace-delimited list
+    @param extensions   May be either an array of extensions or a whitespace-delimited list
                         in a single string.
 */
 - (void)setAllowedExtensions:(id)extensions
@@ -1228,7 +1097,7 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (void)pumpRunLoop
 {
-    // Pump the run loop, jQuery-File-Upload event handlers are called outside of Cappuccino's run loop
+    // Pump the run loop, jQuery File Upload event handlers are called outside of Cappuccino's run loop
     [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 }
 
@@ -1318,17 +1187,169 @@ var widgetId = @"JQueryFileUpload_input",
     return total;
 }
 
+/// @endcond
+
 @end
 
 
+/*!
+    @class JQueryFileUploadFile
+
+    A wrapper for the File API (https://developer.mozilla.org/en/DOM/file)
+    that allows the values to be used in bindings. Note that if the browser
+    does not support the File API, the size, type, and percentComplete
+    properties will be zero/empty.
+
+    These objects are stored in the JQueryFileUpload queue controller,
+    thus you can bind through the queue controller's arrangedObjects or
+    selection to properties of this class.
+
+    This class exposes the following KVO compliant read-only properties:
+
+    name            The filename of the file
+    size            The file's size in bytes
+    type            The file's mime type
+    status          One of the JQueryFileUploadStatus constants above
+    uploading       A BOOL set to YES during uploading
+    uploadedBytes   The number of bytes uploaded so far for this file
+    bitrate         The upload bitrate for this file
+    percentComplete An integer from 0-100 representing the percentage of the file
+                    that has been uploaded so far
+    indeterminate   A BOOL that indicates whether the total size of the file
+                    is known. This affects what is reported in the progress callbacks.
+    data            The Javascript data object used by jQuery File Upload
+*/
+@implementation JQueryFileUploadFile : CPObject
+{
+    JQueryFileUpload    uploader;
+    CPString            name @accessors(readonly);
+    int                 size @accessors(readonly);
+    CPString            type @accessors(readonly);
+    int                 status @accessors;
+    BOOL                uploading @accessors;
+    int                 uploadedBytes @accessors;
+    float               bitrate @accessors;
+    BOOL                indeterminate @accessors(readonly);
+    JSObject            data @accessors;
+}
+
++ (void)initialize
+{
+    if (self !== [JQueryFileUploadFile class])
+        return;
+
+    FileStatuses[JQueryFileUploadFileStatus_Pending]   = @"Pending";
+    FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading";
+    FileStatuses[JQueryFileUploadFileStatus_Complete]  = @"Complete";
+}
+
++ (CPSet)keyPathsForValuesAffectingPercentComplete
+{
+    return [CPSet setWithObjects:@"uploadedBytes"];
+}
+
+/*!
+    Designated initializer.
+
+    Init with a Javascript File object and jQuery File Upload data.
+*/
+- (id)initWithUploader:(JQueryFileUpload)anUploader file:(JSObject)aFile data:(JSObject)someData
+{
+    if (self = [super init])
+    {
+        uploader = anUploader;
+        name = aFile.name;
+        status = JQueryFileUploadFileStatus_Pending;
+        uploading = NO;
+        bitrate = 0.0;
+        data = someData;
+
+        if (aFile.hasOwnProperty("size"))
+        {
+            size = aFile.size;
+            type = aFile.type;
+            indeterminate = NO;
+        }
+        else
+        {
+            size = 0;
+            type = @"";
+            indeterminate = YES;
+        }
+    }
+
+    return self;
+}
+
+/*!
+    Return the upload percentage as a number from 0-100.
+    Returns zero if indeterminate == YES.
+*/
+- (int)percentComplete
+{
+    return indeterminate ? 0 : FLOOR(uploadedBytes / size * 100);
+}
+
+/*!
+    Submit this file for uploading. This will in turn trigger the relevant
+    methods in JQueryFileUploader and its delegate.
+*/
+- (void)submit
+{
+    [self setStatus:JQueryFileUploadFileStatus_Uploading];
+    [self setUploadedBytes:0];
+
+    data.submit();
+}
+
+/*!
+    Notifies the file that it has actually started uploading.
+    Normally you would not need to call this method, it is called
+    by JQueryFileUploader when necessary.
+*/
+- (void)start
+{
+    [self setUploading:YES];
+}
+
+/*!
+    Stops the upload for the file and notifies the delegate. Use this method
+    to stop a single file within the queue without stopping the entire queue.
+*/
+- (void)stop
+{
+    [self setStatus:JQueryFileUploadFileStatus_Pending];
+    [self setUploading:NO];
+
+    data.abort();
+
+    [uploader uploadWasStoppedForFile:self];
+}
+
+- (CPString)description
+{
+    return [CPString stringWithFormat:@"%@ \"%@\", size=%d, type=%s, uploadedBytes=%d, status=%s", [super description], name, size, type, uploadedBytes, FileStatuses[status]];
+}
+
+@end
+
+
+/*!
+    This class is designed to replace the standard NSTableCellView used in a view-based table
+    within Xcode. It provides an action method which can be used to stop a single file's upload.
+
+    Usage
+    1. Select the table cell view in which you want to place a stop button.
+    2. Go to the Identity Inspector and set the class to JQueryFileUploadTableCellView.
+    3. Place a button in the cell view.
+    4. Connect the selector of the button to the `stopUpload:` method in its own cell view.
+*/
 @implementation JQueryFileUploadTableCellView : CPTableCellView
 
 - (@action)stopUpload:(id)sender
 {
     [[self objectValue] stop];
 }
-
-/// @endcond
 
 @end
 

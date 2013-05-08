@@ -14,7 +14,7 @@
 /*!
     This class is the protocol for JQueryFileUploadDelegate objects.
     The methods in this class for the most part correspond to jQuery File Upload
-    callbacks (https://github.com/blueimp/jQuery-File-Upload/wiki/Options#callback-options).
+    callbacks (https://github.com/blueimp/jQuery File Upload/wiki/Options#callback-options).
 
     This class can either be subclassed, or can be used as a template for your
     own delegates. If you subclass, be sure to provide the appropriate
