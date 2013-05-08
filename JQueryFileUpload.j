@@ -22,6 +22,9 @@ JQueryFileUploadFileStatus_Pending   = 0;
 JQueryFileUploadFileStatus_Uploading = 1;
 JQueryFileUploadFileStatus_Complete  = 2;
 
+JQueryFileUploadFilteredName = 1 << 0;
+JQueryFileUploadFilteredSize = 1 << 1;
+
 var FileStatuses = [];
 
 /*!
@@ -30,11 +33,24 @@ var FileStatuses = [];
     A wrapper for the File API (https://developer.mozilla.org/en/DOM/file)
     that allows the values to be used in bindings.
 
-    If the browser does not support the File API, only the name will be
-    set, and indeterminate will return YES.
+    These objects are stored in the JQueryFileUpload queue controller,
+    thus you can bind through the queue controller's arranged objects or
+    selection to properties of this class.
 
-    The data instance variable stores the Javascript data object used
-    by jQuery-File-Upload.
+    This class exposes the following read only bindings:
+
+    name            The filename of the file
+    size            The file's size in bytes
+    type            The file's mime type
+    status          One of the JQueryFileUploadStatus constants above
+    uploading       A BOOL set to YES during uploading
+    uploadedBytes   The number of bytes uploaded so far for this file
+    bitrate         The upload bitrate for this file
+    percentComplete An integer from 0-100 representing the percentage of the file
+                    that has been uploaded so far
+    indeterminate   A BOOL that indicates whether the total size of the file
+                    is known. This affects what is reported in the progress callbacks.
+    data            The Javascript data object used by jQuery-File-Upload
 */
 @implementation JQueryFileUploadFile : CPObject
 {
@@ -58,6 +74,11 @@ var FileStatuses = [];
     FileStatuses[JQueryFileUploadFileStatus_Pending]   = @"Pending";
     FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading";
     FileStatuses[JQueryFileUploadFileStatus_Complete]  = @"Complete";
+}
+
++ (CPSet)keyPathsForValuesAffectingPercentComplete
+{
+    return [CPSet setWithObjects:@"uploadedBytes"];
 }
 
 /*!
@@ -93,15 +114,6 @@ var FileStatuses = [];
     return self;
 }
 
-- (void)setUploadedBytes:(int)bytes
-{
-    [self willChangeValueForKey:@"percentComplete"];
-
-    uploadedBytes = bytes;
-
-    [self didChangeValueForKey:@"percentComplete"];
-}
-
 /*!
     Return the upload percentage as a number from 0-100.
     Returns zero if indeterminate == YES.
@@ -111,6 +123,10 @@ var FileStatuses = [];
     return indeterminate ? 0 : FLOOR(uploadedBytes / size * 100);
 }
 
+/*!
+    Submit this file for uploading. This will in turn trigger the relevant
+    methods in JQueryFileUploader and its delegate.
+*/
 - (void)submit
 {
     [self setStatus:JQueryFileUploadFileStatus_Uploading];
@@ -119,24 +135,28 @@ var FileStatuses = [];
     data.submit();
 }
 
+/*!
+    Notifies the file that it has actually started uploading.
+    Normally you would not need to call this method, it is called
+    by JQueryFileUploader when necessary.
+*/
 - (void)start
 {
     [self setUploading:YES];
 }
 
+/*!
+    Stops the upload for the file and notifies the delegate. Use this method
+    to stop a single file within the queue without stopping the entire queue.
+*/
 - (void)stop
 {
     [self setStatus:JQueryFileUploadFileStatus_Pending];
     [self setUploading:NO];
 
     data.abort();
-}
 
-- (void)abort
-{
-    [self stop];
-
-    [uploader uploadWasAbortedForFile:self];
+    [uploader uploadWasStoppedForFile:self];
 }
 
 - (CPString)description
@@ -145,6 +165,7 @@ var FileStatuses = [];
 }
 
 @end
+
 
 var widgetId = @"JQueryFileUpload_input",
     callbacks = nil,
@@ -156,7 +177,7 @@ var widgetId = @"JQueryFileUpload_input",
     delegateSucceed = 1 << 5,
     delegateFail = 1 << 6,
     delegateComplete = 1 << 7,
-    delegateAbort = 1 << 8,
+    delegateStop = 1 << 8,
     delegateFileProgress = 1 << 9,
     delegateProgress = 1 << 10,
     delegateStart = 1 << 11,
@@ -182,24 +203,142 @@ var widgetId = @"JQueryFileUpload_input",
 
     NOTE: The singleFileUpload option is not supported, it is always set to true.
 
-    This class exposes several read only bindings that are useful when creating
-    interfaces that use this class:
-
-    queueController     A CPArrayController which manages the queue of files to be uploaded.
-    uploading           A BOOL set to YES during uploading
-    indeterminate       A BOOL that indicates whether the total size of the upload
-                        queue is known. This affects what is reported in the progress callbacks.
-    progress            A dictionary with the following items:
-                            uploaded        Number of bytes uploaded so far
-                            total           Total number of bytes to be uploaded. If indeterminate
-                                            is YES, this is undefined.
-                            percentComplete Percentage of the total (0-100) uploaded so far
-                            bitrate         The overall bitrate of the upload so far
-
-                        You can bind both to the dictionary and to items within the dictionary.
-
     The full set of callbacks supported by jQuery-File-Upload are provided as delegate methods.
     See the jQueryFileUploadDelegate class for more info.
+
+    This class exposes many outlets, actions, bindings and properties that are useful when
+    creating interfaces that use this class. If you plan to create an interface using JQueryFileUpload
+    in Xcode, you will get the most out of it by doing the following:
+
+    - In the controller class that will use JQueryFileUpload, create a JQueryFileUpload outlet.
+    - In Xcode, edit the xib that will contain the JQueryFileUpload interface.
+    - Add an NSObject to the xib and set its class to JQueryFileUpload.
+    - Connect the JQueryFileUpload instance to your controller's JQueryFileUpload outlet.
+    - Add an NSArrayController to the xib.
+    - Connect the queueController outlet of the JQueryFileUpload object to the array controller.
+
+    Once you have done this, you can bind directly to properties in the JQueryFileUpload object
+    and to the arranged objects and selection of the array controller.
+
+    -------
+    Outlets
+    -------
+    dropTarget          Files can be added to the queue by dragging and dropping.
+                        By default the entire browser window is the drop target for files.
+                        You can connect this outlet to any view (including Cappuccino windows)
+                        to specify the drop target.
+
+    delegate            JQueryFileUpload communicates with its delegate extensively. You can
+                        connect this outlet to the object that acts as the delegate.
+
+    queueController     An array controller used to manage the upload queue.
+
+    -------
+    Actions
+    -------
+    addFiles            Presents an open file dialog to add one or more files to the upload queue.
+
+    start               Starts all files in the upload queue.
+
+    stop                Stops all files in the upload queue.
+
+    clearQueue          Clears all files from the upload queue. If an upload is in progress, does nothing.
+
+    ----------
+    Properties
+    ----------
+    Where noted, the properties in this class mirror the options in jQuery-File-Upload, which are
+    documented here: https://github.com/blueimp/jQuery-File-Upload/wiki/Options. Except where
+    noted, the properties are read-write, and where the type is suitable, can be used with bindings.
+
+    uploading               A BOOL set to YES during uploading. (read-only)
+
+    indeterminate           A BOOL that indicates whether the total size of the upload queue is known.
+                            This affects what is reported in the progress callbacks. (read-only)
+
+    progress                A dictionary which contains info on the overall progress of the upload.
+                            The dictionary contains the following items:
+
+                                uploadedBytes   Number of bytes uploaded so far
+                                total           Total number of bytes to be uploaded. If indeterminate
+                                                is YES, this is undefined.
+                                percentComplete Integer percentage of the total (0-100) uploaded so far
+                                bitrate         The overall bitrate of the upload so far
+
+                            As usual, you can bind to items within the dictionary.
+                            (read-only)
+
+    URL                     A string representing the URL to which files will be uploaded.
+                            jQuery File Upload option: url.
+
+    redirectURL             A string. jQuery File Upload option: redirect.
+
+    sequential              A BOOL indicating whether multiple uploads will be performed sequentially
+                            or concurrently. YES by default. jQuery File Upload option: sequentialuploads.
+
+    maxChunkSize            If non-zero, uploads will be chunked. This is definitely preferable
+                            if you plan on supporting large files. jQuery File Upload option: maxchunksize.
+
+    maxConcurrentUploads    An int which limits the number of concurrent uploads when sequential is NO.
+                            jQuery File Upload option: limitconcurrentuploads.
+
+    progressInterval        The minimum time interval in milliseconds to calculate and trigger progress events.
+                            jQuery File Upload option: progressInterval.
+
+    filenameFilter          A string regular expression suitable for use with the Javascript RegExp constructor.
+                            When adding files to the queue, filenames that do not match regex are rejected.
+                            Setting this property updates the filenameFilterRegex property.
+
+    filenameFilterRegex     A Javascript regular expression. When adding files, filenames that do not match the
+                            are rejected. Setting this property updates the filenameFilter property.
+
+    allowedExtensions       This write-only property should be a space-delimited string with one or more
+                            filename extensions (with or without dots). Setting this property constructs a RegExp
+                            which allows filenames that end with the given extensions and sets the filenameFilter
+                            and filenameFilterRegex properties accordingly.
+
+    maxFileSize             An int representing the maximum size of a file that can be added to the queue.
+                            Only supported on browsers that support the File API.
+
+    autoUpload              A BOOL that indicates whether files added to the queue should immediately
+                            start uploading. Defaults to NO.
+
+    removeCompletedFiles    A BOOL that indicates whether files that have successfully uploaded should be
+                            removed from the queue. Defaults to NO.
+
+    currentEvent            The most recent jQuery event (NOT Cappuccino event) which triggered a method.
+                            Usually this is of no interest, but if for some reason delegates want it,
+                            they can retrieve it through this property. (read-only)
+
+    currentData             When a jQuery File Upload callback is triggered (which then calls a JQueryFileUpload
+                            method), in most cases a data object is passed that reflects the current state. The
+                            most relevant fields within that object are copied to the Cappuccino state, so usually
+                            you will have no need for this. Delegates may use this method to retrieve the data passed
+                            from the most recent callback. (read-only)
+
+    queue                   The array of JQueryFileUploadFile objects used to represent the queue. In most cases
+                            you should consider this read only and manipulate the queue through its array controller.
+
+    fileClass               The class of the objects stored in the queue. May be set either with a class or a string
+                            class name, which allows you to set the class in Xcode either through User Defined Runtime
+                            Attributes or bindings. This is useful if you want to add custom properties or methods to
+                            the file objects.
+
+    Most of the read-write properties can be set in Xcode:
+
+    - Select the JQueryFileUpload object.
+    - Select the Identity Inspector.
+    - In the User Defined Runtime Attributes pane, click + to add an attribute.
+    - Set the Key Path to the property's name.
+    - Set the Type to the property's type or the parameter type its setter takes.
+    - Set the value to whatever you want.
+
+    For example, you can set the URL of the upload server by adding this User Defined
+    Runtime Attribute:
+
+    Key Path: URL
+    Type:     String
+    Value:    http://myserver.com/upload
 */
 @implementation JQueryFileUpload : CPObject
 {
@@ -208,20 +347,22 @@ var widgetId = @"JQueryFileUpload_input",
     CPString            URL @accessors;
     CPString            redirectURL @accessors;
     BOOL                sequential @accessors;
-    int                 maximumChunkSize @accessors;
+    int                 maxChunkSize @accessors;
     int                 maxConcurrentUploads @accessors;
+    int                 progressInterval @accessors;
     @outlet CPView      dropTarget @accessors(readonly);
     JSObject            jQueryDropTarget;
 
     CPString            filenameFilter @accessors;
     RegExp              filenameFilterRegex @accessors;
+
+    int                 maxFileSize @accessors;
     BOOL                autoUpload @accessors;
     BOOL                removeCompletedFiles @accessors;
 
     jQueryEvent         currentEvent @accessors(readonly);
     JSObject            currentData @accessors(readonly);
 
-    CPMutableArray      queue @accessors;
     BOOL                uploading @accessors;
     BOOL                indeterminate @accessors;
     CPMutableDictionary progress @accessors;
@@ -229,11 +370,23 @@ var widgetId = @"JQueryFileUpload_input",
     @outlet id          delegate @accessors(readonly);
     int                 delegateImplementsFlags;
 
-    Class               fileClass;
+    Class               fileClass @accessors;
 
+    CPMutableArray            queue @accessors(readonly);
     @outlet CPArrayController queueController @accessors(readonly);
 }
 
++ (BOOL)automaticallyNotifiesObserversForKey:(CPString)key
+{
+    if (key === @"filenameFilter" || key === @"filenameFilterRegex")
+        return NO;
+    else
+        return [super automaticallyNotifiesObserversForKey:key];
+}
+
+/*!
+    Returns the current version of the framework as a string.
+*/
 + (CPString)version
 {
     var bundle = [CPBundle bundleForClass:[self class]];
@@ -243,6 +396,9 @@ var widgetId = @"JQueryFileUpload_input",
 
 #pragma mark Initialization
 
+/*!
+    Initializes and returns a JQueryFileUpload object which uploads to the given URL.
+*/
 - (id)initWithURL:(CPString)aURL
 {
     self = [self init];
@@ -253,6 +409,9 @@ var widgetId = @"JQueryFileUpload_input",
     return self;
 }
 
+/*!
+    The designated initializer.
+*/
 - (id)init
 {
     self = [super init];
@@ -282,15 +441,16 @@ var widgetId = @"JQueryFileUpload_input",
 {
     fileUploadOptions = cloneOptions(options);
 
-    URL = options["url"] || @"";
-    redirectURL = options["redirect"] || @"";
-    sequential = options["sequential"] || YES;
-    maximumChunkSize = options["maxChunkSize"] || 0;
-    maxConcurrentUploads = ["limitConcurrentUploads"] || NO;
+    [self setURL:options["url"] || @""];
+    [self setRedirectURL:options["redirect"] || @""];
+    [self setSequential:options["sequential"] || YES];
+    [self setMaxChunkSize:options["maxChunkSize"] || 0];
+    [self setMaxConcurrentUploads:options["limitConcurrentUploads"] || NO];
+    [self setProgressInterval:options["progressInterval"] || 100];
 }
 
 /*!
-    Set the view that will be the drop target for files dragged into
+    Sets the view that will be the drop target for files dragged into
     the browser. Pass [CPPlatformWindow primaryPlatformWindow] to make
     the entire window the drop target. Pass nil to disable drag and drop.
 */
@@ -312,6 +472,9 @@ var widgetId = @"JQueryFileUpload_input",
     });
 }
 
+/*!
+    Sets the delegate. For information on delegate methods, see the JQueryFileUploadDelegate class.
+*/
 - (void)setDelegate:(id)aDelegate
 {
     if (aDelegate === delegate)
@@ -323,7 +486,7 @@ var widgetId = @"JQueryFileUpload_input",
     if (!delegate)
         return;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:didFilterFile:)])
+    if ([delegate respondsToSelector:@selector(fileUpload:didFilterFile:because:)])
         delegateImplementsFlags |= delegateFilter;
 
     if ([delegate respondsToSelector:@selector(fileUpload:willAddFile:)])
@@ -368,8 +531,8 @@ var widgetId = @"JQueryFileUpload_input",
     if ([delegate respondsToSelector:@selector(fileUpload:uploadDidCompleteForFile:)])
         delegateImplementsFlags |= delegateComplete;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadWasAbortedForFile:)])
-        delegateImplementsFlags |= delegateAbort;
+    if ([delegate respondsToSelector:@selector(fileUpload:uploadWasStoppedForFile:)])
+        delegateImplementsFlags |= delegateStop;
 
     if ([delegate respondsToSelector:@selector(fileUploadDidStop:)])
         delegateImplementsFlags |= delegateStop;
@@ -413,7 +576,7 @@ var widgetId = @"JQueryFileUpload_input",
         [queueController setObjectClass:fileClass];
     }
     else
-        CPLog.warn("%s the file class must be a subclass of JQueryFileUploadFile.", [aClass className]);
+        CPLog.warn("%s: %s the file class must be a subclass of JQueryFileUploadFile.", [self className], [aClass className]);
 }
 
 /*!
@@ -422,44 +585,43 @@ var widgetId = @"JQueryFileUpload_input",
 */
 - (void)setFilenameFilter:(CPString)aFilter
 {
-    if (filenameFilter === aFilter)
-        return;
-
     [self _setFilenameFilter:aFilter caseSensitive:YES];
 }
 
 /*!
     Sets the filter used to validate filenames that are being added to the queue.
     The string is passed to `new RegExp()`, so no delimiters should be included in the string.
+    The filenameFilterRegex property stays in sync with this property.
 */
 - (void)setFilenameFilter:(CPString)aFilter caseSensitive:(BOOL)caseSensitive
 {
-    [self willChangeValueForKey:@"filenameFilter"];
-
     [self _setFilenameFilter:aFilter caseSensitive:caseSensitive];
-
-    [self didChangeValueForKey:@"filenameFilter"];
 }
 
 /*!
     Sets the filter regex used to validate filenames that are being added to the queue.
-    The filenameFilter string is set to stay in sync with the regex.
+    The filenameFilter property stays in sync with this property.
 */
 - (void)setFilenameFilterRegex:(RegExp)regex
 {
-    if (filenameFilterRegex.toString() === regex.toString())
+    if ((filenameFilterRegex || "").toString() === (regex || "").toString())
         return;
+
+    [self willChangeValueForKey:@"filenameFilterRegex"];
+    [self willChangeValueForKey:@"filenameFilter"];
 
     filenameFilterRegex = regex;
 
-    [self willChangeValueForKey:@"filenameFilter"];
-
     if (regex)
-        filenameFilter = regex.toString().replace(/^\/(.*)\/(\w*)?$/, "$1");
+    {
+        // RegExp.toString() includes leading/trailing "/" and possible flags, remove those
+        filenameFilter = regex.toString().replace(/^\/(.*)\/\w*$/, "$1");
+    }
     else
         filenameFilter = @"";
 
     [self didChangeValueForKey:@"filenameFilter"];
+    [self didChangeValueForKey:@"filenameFilterRegex"];
 }
 
 /*!
@@ -490,6 +652,10 @@ var widgetId = @"JQueryFileUpload_input",
     [self setFilenameFilter:filter caseSensitive:NO];
 }
 
+/*!
+    Returns the array controller for the queue, instantiating it (and the queue) if necessary
+    and setting its content to the queue array.
+*/
 - (CPArrayController)queueController
 {
     if (!queueController)
@@ -517,12 +683,18 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*!
-    Upload the currently selected files.
+    Upload all of the files in the queue.
     Can be used as an action method.
 */
 - (@action)start:(id)sender
 {
     [self fileUpload:@"option", [self makeOptions]];
+
+    if (!URL)
+    {
+        CPLog.error("%s: The URL has not been set.", [self className]);
+        return;
+    }
 
     [queue makeObjectsPerformSelector:@selector(submit)];
 
@@ -531,14 +703,14 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*!
-    Abort all uploads. Can be used as an action method.
+    Stop all uploads. Can be used as an action method.
 */
 - (@action)stop:(id)sender
 {
-    [queue makeObjectsPerformSelector:@selector(stop)];
-
     if (delegateImplementsFlags & delegateStopQueue)
         [delegate fileUploadDidStopQueue:self];
+
+    [queue makeObjectsPerformSelector:@selector(stop)];
 
     [self setUploading:NO];
 }
@@ -555,7 +727,7 @@ var widgetId = @"JQueryFileUpload_input",
 
     [queue removeAllObjects];
     [[self queueController] setContent:queue];
-    [self resetProgressZeroingTotal:YES];
+    [self resetProgress];
 
     if (delegateImplementsFlags & delegateClearQueue)
         [delegate fileUploadDidClearQueue:self];
@@ -563,20 +735,24 @@ var widgetId = @"JQueryFileUpload_input",
 
 #pragma mark Methods
 
-- (void)abortUploadWithUID:(CPString)aUID
+/*!
+    Returns the file in the queue with the given UID, or nil if none match.
+*/
+- (JQueryFileUploadFile)fileWithUID:(CPString)aUID
 {
     var file = [queue objectAtIndex:[queue indexOfObjectPassingTest:function(file)
                     {
                         return [file UID] === aUID;
                     }]];
 
-    [file abort];
+    return file;
 }
 
 #pragma mark Overrides
 
 - (void)awakeFromCib
 {
+    [queueController setContent:queue];
     [queueController addObserver:self forKeyPath:@"content" options:0 context:nil];
 }
 
@@ -585,20 +761,19 @@ var widgetId = @"JQueryFileUpload_input",
     if (aKeyPath === @"content")
     {
         // If a file is added or removed from the content, reset the overall progress to zero.
-        [self resetProgressZeroingTotal:NO];
+        [self resetProgress];
     }
 }
 
 #pragma mark Delegate (private)
 
+/// @cond IGNORE
+
 - (void)addFile:(JSFile)aFile
 {
-    var canAdd = YES;
-
-    if (filenameFilter)
-        canAdd = filenameFilterRegex.test(aFile.name);
-
-    var file = [[fileClass alloc] initWithUploader:self file:aFile data:currentData];
+    var filterFlags = [self validateFile:aFile],
+        canAdd = filterFlags === 0,
+        file = [[fileClass alloc] initWithUploader:self file:aFile data:currentData];
 
     // Tag the JS File object with the JQueryFileUploadFile UID so we can locate
     // the JQueryFileUploadFile object later from a File object.
@@ -610,7 +785,7 @@ var widgetId = @"JQueryFileUpload_input",
             canAdd = [delegate fileUpload:self willAddFile:file];
     }
     else if (delegateImplementsFlags & delegateFilter)
-        [delegate fileUpload:self didFilterFile:file];
+        [delegate fileUpload:self didFilterFile:file because:filterFlags];
 
     if (canAdd)
     {
@@ -635,10 +810,18 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (BOOL)submitFile:(JQueryFileUploadFile)aFile
 {
-    if (delegateImplementsFlags & delegateSubmit)
-        return [delegate fileUpload:self willSubmitFile:aFile];
+    if (!URL)
+    {
+        CPLog.error("%s: The URL has not been set.", [self className]);
+        return NO;
+    }
 
-    return YES;
+    var canSubmit = YES;
+
+    if (delegateImplementsFlags & delegateSubmit)
+        canSubmit = [delegate fileUpload:self willSubmitFile:aFile];
+
+    return canSubmit;
 }
 
 - (BOOL)willSendFile:(JQueryFileUploadFile)aFile
@@ -737,10 +920,10 @@ var widgetId = @"JQueryFileUpload_input",
         [delegate fileUpload:self uploadDidCompleteForFile:aFile];
 }
 
-- (void)uploadWasAbortedForFile:(JQueryFileUploadFile)aFile
+- (void)uploadWasStoppedForFile:(JQueryFileUploadFile)aFile
 {
-    if (delegateImplementsFlags & delegateAbort)
-        [delegate fileUpload:self uploadWasAbortedForFile:aFile];
+    if (delegateImplementsFlags & delegateStop)
+        [delegate fileUpload:self uploadWasStoppedForFile:aFile];
 }
 
 - (void)uploadDidStop
@@ -805,12 +988,14 @@ var widgetId = @"JQueryFileUpload_input",
     redirectURL = @"";
     sequential = YES;
     maxConcurrentUploads = 0;
+    maxChunkSize = 0;
+    progressInterval = 100;
     progress = [CPMutableDictionary dictionary];
     dropTarget = [CPPlatformWindow primaryPlatformWindow];
     jQueryDropTarget = jQuery(document);
     removeCompletedFiles = NO;
 
-    [self resetProgressZeroingTotal:YES];
+    [self resetProgress];
     [self setUploading:NO];
     [self setIndeterminate:!CPFeatureIsCompatible(CPFileAPIFeature)];
 
@@ -819,7 +1004,6 @@ var widgetId = @"JQueryFileUpload_input",
     [CPTimer scheduledTimerWithTimeInterval:0 target:self selector:@selector(finishInit) userInfo:nil repeats:NO];
 }
 
-/*! @ignore */
 - (void)makeFileInput
 {
     var input = document.getElementById(widgetId);
@@ -840,13 +1024,11 @@ var widgetId = @"JQueryFileUpload_input",
     bodyElement.appendChild(input);
 }
 
-/*! @ignore */
 - (void)finishInit
 {
     jQuery("#" + widgetId).fileupload([self makeOptions]);
 }
 
-/*! @ignore */
 - (void)setCallbacks:(JSObject)options
 {
     if (!callbacks)
@@ -1029,23 +1211,27 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (void)_setFilenameFilter:(CPString)aFilter caseSensitive:(BOOL)caseSensitive
 {
-    filenameFilter = aFilter;
+    var regex = new RegExp(aFilter, caseSensitive ? "" : "i");
 
+    if (regex.toString() === (filenameFilterRegex || "").toString())
+        return;
+
+    [self willChangeValueForKey:@"filenameFilter"];
     [self willChangeValueForKey:@"filenameFilterRegex"];
 
-    filenameFilterRegex = aFilter ? new RegExp(aFilter, caseSensitive ? "" : "i") : nil;
+    filenameFilter = aFilter;
+    filenameFilterRegex = aFilter ? regex : nil;
 
     [self didChangeValueForKey:@"filenameFilterRegex"];
+    [self didChangeValueForKey:@"filenameFilter"];
 }
 
-/*! @ignore */
 - (void)pumpRunLoop
 {
     // Pump the run loop, jQuery-File-Upload event handlers are called outside of Cappuccino's run loop
     [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 }
 
-/*! @ignore */
 - (JQueryFileUploadFile)fileFromJSFile:(JSFile)aFile
 {
     return [self fileWithUID:aFile.CPUID];
@@ -1059,7 +1245,6 @@ var widgetId = @"JQueryFileUpload_input",
                 }]];
 }
 
-/*! @ignore */
 - (id)fileUpload:(id)firstObject, ...
 {
     // The arguments array contains self and _cmd, so the first object is at position 2.
@@ -1072,7 +1257,6 @@ var widgetId = @"JQueryFileUpload_input",
         return widget.fileupload();
 }
 
-/*! @ignore */
 - (JSObject)makeOptions
 {
     fileUploadOptions["dataType"] = "json";
@@ -1080,8 +1264,9 @@ var widgetId = @"JQueryFileUpload_input",
     fileUploadOptions["redirect"] = redirectURL;
     fileUploadOptions["sequentialUploads"] = sequential;
     fileUploadOptions["singleFileUploads"] = true;
-    fileUploadOptions["maxChunkSize"] = maximumChunkSize;
+    fileUploadOptions["maxChunkSize"] = maxChunkSize;
     fileUploadOptions["limitConcurrentUploads"] = maxConcurrentUploads;
+    fileUploadOptions["progressInterval"] = progressInterval;
     fileUploadOptions["dropZone"] = jQueryDropTarget;
 
     [self setCallbacks:fileUploadOptions];
@@ -1089,25 +1274,48 @@ var widgetId = @"JQueryFileUpload_input",
     return fileUploadOptions;
 }
 
-/*! @ignore */
-- (void)updateProgressWithUploadedBytes:(int)uploadedBytes total:(int)total percentComplete:(float)percentComplete bitrate:(int)bitrate
+- (void)updateProgressWithUploadedBytes:(CPNumber)uploadedBytes total:(CPNumber)total percentComplete:(CPNumber)percentComplete bitrate:(CPNumber)bitrate
 {
-    // Allow bindings to see the change in the dictionary values
-    [self willChangeValueForKey:@"progress"];
+    if (uploadedBytes !== nil)
+        [progress setValue:uploadedBytes forKey:@"uploadedBytes"];
 
-    [progress setValue:uploadedBytes forKey:@"uploadedBytes"];
-    [progress setValue:total forKey:@"total"];
-    [progress setValue:percentComplete forKey:@"percentComplete"];
-    [progress setValue:bitrate forKey:@"bitrate"];
+    if (total !== nil)
+        [progress setValue:total forKey:@"total"];
 
-    [self didChangeValueForKey:@"progress"];
+    if (percentComplete !== nil)
+        [progress setValue:FLOOR(percentComplete) forKey:@"percentComplete"];
+
+    if (bitrate !== nil)
+        [progress setValue:bitrate forKey:@"bitrate"];
 }
 
-/*! @ignore */
-- (void)resetProgressZeroingTotal:(BOOL)zeroTotal
+- (void)resetProgress
 {
-    var total = zeroTotal ? 0 : [progress valueForKey:@"total"];
-    [self updateProgressWithUploadedBytes:0 total:total percentComplete:0.0 bitrate:0];
+    [self updateProgressWithUploadedBytes:0 total:[self totalSizeOfQueue] percentComplete:0 bitrate:0];
+}
+
+- (int)validateFile:(JSFile)aFile
+{
+    var flags = 0;
+
+    if (filenameFilterRegex && !filenameFilterRegex.test(aFile.name))
+        flags |= JQueryFileUploadFilteredName;
+
+    if (aFile.hasOwnProperty("size") && maxFileSize && aFile.size > maxFileSize)
+        flags |= JQueryFileUploadFilteredSize;
+
+    return flags;
+}
+
+- (int)totalSizeOfQueue
+{
+    var total = 0,
+        count = [queue count];
+
+    while (count--)
+        total += [queue[count] size];
+
+    return total;
 }
 
 @end
@@ -1117,8 +1325,10 @@ var widgetId = @"JQueryFileUpload_input",
 
 - (@action)stopUpload:(id)sender
 {
-    [[self objectValue] abort];
+    [[self objectValue] stop];
 }
+
+/// @endcond
 
 @end
 
