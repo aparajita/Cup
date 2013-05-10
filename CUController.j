@@ -1,6 +1,6 @@
 /*
- * JQueryFileUpload.j
- * JQueryFileUpload
+ * CUController.j
+ * Cup
  *
  * Created by Aparajita Fishman on February 3, 2013.
  * Copyright 2013, Filmworkers Club. All rights reserved.
@@ -20,20 +20,20 @@
 
 @global jQuery
 
-JQueryFileUploadFileStatus_Pending   = 0;
-JQueryFileUploadFileStatus_Uploading = 1;
-JQueryFileUploadFileStatus_Complete  = 2;
+CupFileStatus_Pending   = 0;
+CupFileStatus_Uploading = 1;
+CupFileStatus_Complete  = 2;
 
 /*
-    These constants are bit flags passed to the fileUpload:didFilterFile:because:
+    These constants are bit flags passed to the uploader:didFilterFile:because:
     delegate method, indicating why the file was rejected.
 */
-JQueryFileUploadFilteredName = 1 << 0;
-JQueryFileUploadFilteredSize = 1 << 1;
+CupFilteredName = 1 << 0;
+CupFilteredSize = 1 << 1;
 
 var FileStatuses = [];
 
-var widgetId = @"JQueryFileUpload_input",
+var widgetId = @"Cup_input",
     callbacks = nil,
     delegateFilter = 1 << 0,
     delegateWillAdd = 1 << 1,
@@ -61,7 +61,7 @@ var widgetId = @"JQueryFileUpload_input",
     delegateStopQueue = 1 << 23;
 
 /*!
-    @class JQueryFileUpload
+    @class CUController
 
     A wrapper for jQuery File Upload. The main configuration options
     are available as accessor methods in this class. If other options
@@ -70,20 +70,20 @@ var widgetId = @"JQueryFileUpload_input",
     NOTE: The singleFileUpload option is not supported, it is always set to true.
 
     The full set of callbacks supported by jQuery File Upload are provided as delegate methods.
-    See the jQueryFileUploadDelegate class for more info.
+    See the CUControllerDelegate class for more info.
 
     This class exposes many KVO compliant properties, outlets and actions that are useful when
-    creating interfaces that use this class. If you plan to create an interface using JQueryFileUpload
+    creating interfaces that use this class. If you plan to create an interface using Cup
     in Xcode, you will get the most out of it by doing the following:
 
-    - In the controller class that will use JQueryFileUpload, create a JQueryFileUpload outlet.
-    - In Xcode, edit the xib that will contain the JQueryFileUpload interface.
-    - Add an NSObject to the xib and set its class to JQueryFileUpload.
-    - Connect the JQueryFileUpload instance to your controller's JQueryFileUpload outlet.
+    - In the controller class that will use Cup, create a CUController outlet.
+    - In Xcode, edit the xib that will contain the Cup interface.
+    - Add an NSObject to the xib and set its class to CUController.
+    - Connect the CUController instance to your controller's CUController outlet.
     - Add an NSArrayController to the xib.
-    - Connect the queueController outlet of the JQueryFileUpload object to the array controller.
+    - Connect the queueController outlet of the CUController object to the array controller.
 
-    Once you have done this, you can bind directly to properties in the JQueryFileUpload object
+    Once you have done this, you can bind directly to properties in the CUController object
     and to the arrangedObjects and selection of the array controller.
 
     ----------
@@ -95,7 +95,7 @@ var widgetId = @"JQueryFileUpload_input",
 
     Most of the read-write properties can be set in Xcode:
 
-    - Select the JQueryFileUpload object.
+    - Select the CUController object.
     - Select the Identity Inspector.
     - In the User Defined Runtime Attributes pane, click + to add an attribute.
     - Set the Key Path to the property's name.
@@ -172,19 +172,19 @@ var widgetId = @"JQueryFileUpload_input",
                             Usually this is of no interest, but if for some reason delegates want it,
                             they can retrieve it through this property. (read-only)
 
-    currentData             When a jQuery File Upload callback is triggered (which eventually calls a JQueryFileUpload
+    currentData             When a jQuery File Upload callback is triggered (which eventually calls a CUController
                             delegate method), in most cases a data object is passed that reflects the current state.
                             The most relevant fields within that object are copied to the Cappuccino state, so usually
                             you will have no need for this. Delegates may use this method to retrieve the data passed
                             from the most recent callback. (read-only)
 
-    queue                   The array of JQueryFileUploadFile objects used to represent the queue. In most cases
+    queue                   The array of CUFile objects used to represent the queue. In most cases
                             you should consider this read-only and manipulate the queue through its array controller.
 
     fileClass               The class of the objects stored in the queue. May be set either with a class or a string
                             class name, which allows you to set the class in Xcode either through User Defined Runtime
                             Attributes or bindings. This is useful if you want to add custom properties or methods to
-                            the file objects. Must be JQueryFileUploadFile or a subclass thereof.
+                            the file objects. Must be CUFile or a subclass thereof.
 
     -------
     Outlets
@@ -194,7 +194,7 @@ var widgetId = @"JQueryFileUpload_input",
                         You can connect this outlet to any view (including Cappuccino windows)
                         to specify the drop target.
 
-    delegate            JQueryFileUpload communicates with its delegate extensively. You can
+    delegate            Cup communicates with its delegate extensively. You can
                         connect this outlet to the object that acts as the delegate.
 
     queueController     The array controller used to manage the upload queue.
@@ -210,7 +210,7 @@ var widgetId = @"JQueryFileUpload_input",
 
     clearQueue:         Clears all files from the upload queue. If an upload is in progress, does nothing.
 */
-@implementation JQueryFileUpload : CPObject
+@implementation CUController : CPObject
 {
     // jQuery File Upload options
     JSObject            fileUploadOptions;
@@ -267,7 +267,7 @@ var widgetId = @"JQueryFileUpload_input",
 #pragma mark Initialization
 
 /*!
-    Initializes and returns a JQueryFileUpload object which uploads to the given URL.
+    Initializes and returns a CUController object which uploads to the given URL.
 */
 - (id)initWithURL:(CPString)aURL
 {
@@ -344,7 +344,7 @@ var widgetId = @"JQueryFileUpload_input",
 }
 
 /*!
-    Sets the delegate. For information on delegate methods, see the JQueryFileUploadDelegate class.
+    Sets the delegate. For information on delegate methods, see the CUControllerDelegate class.
 */
 - (void)setDelegate:(id)aDelegate
 {
@@ -357,82 +357,82 @@ var widgetId = @"JQueryFileUpload_input",
     if (!delegate)
         return;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:didFilterFile:because:)])
+    if ([delegate respondsToSelector:@selector(uploader:didFilterFile:because:)])
         delegateImplementsFlags |= delegateFilter;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:willAddFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:willAddFile:)])
         delegateImplementsFlags |= delegateWillAdd;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:didAddFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:didAddFile:)])
         delegateImplementsFlags |= delegateAdd;
 
-    if ([delegate respondsToSelector:@selector(fileUploadDidStart:)])
+    if ([delegate respondsToSelector:@selector(uploaderDidStart:)])
         delegateImplementsFlags |= delegateStart;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:willSubmitFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:willSubmitFile:)])
         delegateImplementsFlags |= delegateSubmit;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:willSendFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:willSendFile:)])
         delegateImplementsFlags |= delegateSend;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:chunkWillSendForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:chunkWillSendForFile:)])
         delegateImplementsFlags |= delegateChunkWillSend;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:chunkDidSucceedForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:chunkDidSucceedForFile:)])
         delegateImplementsFlags |= delegateChunkSucceed;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:chunkDidFailForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:chunkDidFailForFile:)])
         delegateImplementsFlags |= delegateChunkFail;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:chunkDidCompleteForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:chunkDidCompleteForFile:)])
         delegateImplementsFlags |= delegateChunkComplete;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadForFile:didProgress:)])
+    if ([delegate respondsToSelector:@selector(uploader:uploadForFile:didProgress:)])
         delegateImplementsFlags |= delegateFileProgress;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadsDidProgress:)])
+    if ([delegate respondsToSelector:@selector(uploader:uploadsDidProgress:)])
         delegateImplementsFlags |= delegateProgress;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadDidSucceedForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:uploadDidSucceedForFile:)])
         delegateImplementsFlags |= delegateSucceed;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadDidFailForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:uploadDidFailForFile:)])
         delegateImplementsFlags |= delegateFail;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadDidCompleteForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:uploadDidCompleteForFile:)])
         delegateImplementsFlags |= delegateComplete;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:uploadWasStoppedForFile:)])
+    if ([delegate respondsToSelector:@selector(uploader:uploadWasStoppedForFile:)])
         delegateImplementsFlags |= delegateStop;
 
-    if ([delegate respondsToSelector:@selector(fileUploadDidStop:)])
+    if ([delegate respondsToSelector:@selector(uploaderDidStop:)])
         delegateImplementsFlags |= delegateStop;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:fileInputDidSelectFiles:)])
+    if ([delegate respondsToSelector:@selector(uploader:fileInputDidSelectFiles:)])
         delegateImplementsFlags |= delegateChange;
 
-    if ([delegate respondsToSelector:@selector(fileUploadDidStartQueue:)])
+    if ([delegate respondsToSelector:@selector(uploaderDidStartQueue:)])
         delegateImplementsFlags |= delegateStartQueue;
 
-    if ([delegate respondsToSelector:@selector(fileUploadDidClearQueue:)])
+    if ([delegate respondsToSelector:@selector(uploaderDidClearQueue:)])
         delegateImplementsFlags |= delegateClearQueue;
 
-    if ([delegate respondsToSelector:@selector(fileUploadDidStopQueue:)])
+    if ([delegate respondsToSelector:@selector(uploaderDidStopQueue:)])
         delegateImplementsFlags |= delegateStopQueue;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:didPasteFiles:)])
+    if ([delegate respondsToSelector:@selector(uploader:didPasteFiles:)])
         delegateImplementsFlags |= delegatePaste;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:didDropFiles:)])
+    if ([delegate respondsToSelector:@selector(uploader:didDropFiles:)])
         delegateImplementsFlags |= delegateDrop;
 
-    if ([delegate respondsToSelector:@selector(fileUpload:wasDraggedOverWithEvent:)])
+    if ([delegate respondsToSelector:@selector(uploader:wasDraggedOverWithEvent:)])
         delegateImplementsFlags |= delegateDrag;
 }
 
 /*!
     Sets the class for the objects stored in the upload queue.
-    The class must be JQueryFileUploadFile or a subclass thereof.
+    The class must be CUFile or a subclass thereof.
 
     @param aClass Either a class object or a string name of a class
 */
@@ -441,13 +441,13 @@ var widgetId = @"JQueryFileUpload_input",
     if ([aClass isKindOfClass:[CPString class]])
         aClass = CPClassFromString(aClass);
 
-    if ([aClass isKindOfClass:[JQueryFileUploadFile class]])
+    if ([aClass isKindOfClass:[CUFile class]])
     {
         fileClass = aClass;
         [[self queueController] setObjectClass:fileClass];
     }
     else
-        CPLog.warn("%s: %s the file class must be a subclass of JQueryFileUploadFile.", [self className], [aClass className]);
+        CPLog.warn("%s: %s the file class must be a subclass of CUFile.", [self className], [aClass className]);
 }
 
 /*!
@@ -570,7 +570,7 @@ var widgetId = @"JQueryFileUpload_input",
     [queue makeObjectsPerformSelector:@selector(submit)];
 
     if (delegateImplementsFlags & delegateStartQueue)
-        [delegate fileUploadDidStartQueue:self];
+        [delegate uploaderDidStartQueue:self];
 }
 
 /*!
@@ -579,7 +579,7 @@ var widgetId = @"JQueryFileUpload_input",
 - (@action)stop:(id)sender
 {
     if (delegateImplementsFlags & delegateStopQueue)
-        [delegate fileUploadDidStopQueue:self];
+        [delegate uploaderDidStopQueue:self];
 
     [queue makeObjectsPerformSelector:@selector(stop)];
 
@@ -601,7 +601,7 @@ var widgetId = @"JQueryFileUpload_input",
     [self resetProgress];
 
     if (delegateImplementsFlags & delegateClearQueue)
-        [delegate fileUploadDidClearQueue:self];
+        [delegate uploaderDidClearQueue:self];
 }
 
 #pragma mark Methods
@@ -609,7 +609,7 @@ var widgetId = @"JQueryFileUpload_input",
 /*!
     Returns the file in the queue with the given UID, or nil if none match.
 */
-- (JQueryFileUploadFile)fileWithUID:(CPString)aUID
+- (CUFile)fileWithUID:(CPString)aUID
 {
     var file = [queue objectAtIndex:[queue indexOfObjectPassingTest:function(file)
                     {
@@ -646,17 +646,17 @@ var widgetId = @"JQueryFileUpload_input",
         canAdd = filterFlags === 0,
         file = [[fileClass alloc] initWithUploader:self file:aFile data:currentData];
 
-    // Tag the JS File object with the JQueryFileUploadFile UID so we can locate
-    // the JQueryFileUploadFile object later from a File object.
+    // Tag the JS File object with the CUFile UID so we can locate
+    // the CUFile object later from a File object.
     aFile.CPUID = [file UID];
 
     if (canAdd)
     {
         if (delegateImplementsFlags & delegateWillAdd)
-            canAdd = [delegate fileUpload:self willAddFile:file];
+            canAdd = [delegate uploader:self willAddFile:file];
     }
     else if (delegateImplementsFlags & delegateFilter)
-        [delegate fileUpload:self didFilterFile:file because:filterFlags];
+        [delegate uploader:self didFilterFile:file because:filterFlags];
     else
         [self fileWasRejected:file because:filterFlags];
 
@@ -665,7 +665,7 @@ var widgetId = @"JQueryFileUpload_input",
         [[self queueController] addObject:file];
 
         if (delegateImplementsFlags & delegateAdd)
-            [delegate fileUpload:self didAddFile:file];
+            [delegate uploader:self didAddFile:file];
 
         if (autoUpload)
             [file submit];
@@ -678,10 +678,10 @@ var widgetId = @"JQueryFileUpload_input",
     [self setUploading:YES];
 
     if (delegateImplementsFlags & delegateStart)
-        [delegate fileUploadDidStart:self];
+        [delegate uploaderDidStart:self];
 }
 
-- (BOOL)submitFile:(JQueryFileUploadFile)aFile
+- (BOOL)submitFile:(CUFile)aFile
 {
     if (!URL)
     {
@@ -692,17 +692,17 @@ var widgetId = @"JQueryFileUpload_input",
     var canSubmit = YES;
 
     if (delegateImplementsFlags & delegateSubmit)
-        canSubmit = [delegate fileUpload:self willSubmitFile:aFile];
+        canSubmit = [delegate uploader:self willSubmitFile:aFile];
 
     return canSubmit;
 }
 
-- (BOOL)willSendFile:(JQueryFileUploadFile)aFile
+- (BOOL)willSendFile:(CUFile)aFile
 {
     var canSend = YES;
 
     if (delegateImplementsFlags & delegateSend)
-        canSend = [delegate fileUpload:self willSendFile:aFile];
+        canSend = [delegate uploader:self willSendFile:aFile];
 
     if (canSend)
         [aFile start];
@@ -710,35 +710,35 @@ var widgetId = @"JQueryFileUpload_input",
     return canSend;
 }
 
-- (BOOL)chunkWillSendForFile:(JQueryFileUploadFile)aFile
+- (BOOL)chunkWillSendForFile:(CUFile)aFile
 {
     if (delegateImplementsFlags & delegateChunkWillSend)
-        return [delegate fileUpload:self willSendChunkForFile:aFile];
+        return [delegate uploader:self willSendChunkForFile:aFile];
 
     return YES;
 }
 
-- (void)chunkDidSucceedForFile:(JQueryFileUploadFile)aFile
+- (void)chunkDidSucceedForFile:(CUFile)aFile
 {
     [aFile setUploadedBytes:currentData.loaded];
 
     if (delegateImplementsFlags & delegateChunkSucceed)
-        [delegate fileUpload:self chunkDidSucceedForFile:aFile];
+        [delegate uploader:self chunkDidSucceedForFile:aFile];
 }
 
-- (void)chunkDidFailForFile:(JQueryFileUploadFile)aFile
+- (void)chunkDidFailForFile:(CUFile)aFile
 {
     if (delegateImplementsFlags & delegateChunkFail)
-        [delegate fileUpload:self chunkDidFailForFile:aFile];
+        [delegate uploader:self chunkDidFailForFile:aFile];
 }
 
-- (void)chunkDidCompleteForFile:(JQueryFileUploadFile)aFile
+- (void)chunkDidCompleteForFile:(CUFile)aFile
 {
     if (delegateImplementsFlags & delegateChunkComplete)
-        [delegate fileUpload:self chunkDidCompleteForFile:aFile];
+        [delegate uploader:self chunkDidCompleteForFile:aFile];
 }
 
-- (void)uploadForFile:(JQueryFileUploadFile)aFile didProgress:(JSObject)fileProgress
+- (void)uploadForFile:(CUFile)aFile didProgress:(JSObject)fileProgress
 {
     if (fileProgress.uploadedBytes)
         [aFile setUploadedBytes:fileProgress.uploadedBytes];
@@ -746,7 +746,7 @@ var widgetId = @"JQueryFileUpload_input",
     [aFile setBitrate:fileProgress.bitrate];
 
     if (delegateImplementsFlags & delegateFileProgress)
-        [delegate fileUpload:self uploadForFile:aFile didProgress:fileProgress];
+        [delegate uploader:self uploadForFile:aFile didProgress:fileProgress];
 }
 
 - (void)uploadsDidProgress:(JSObject)overallProgress
@@ -757,12 +757,12 @@ var widgetId = @"JQueryFileUpload_input",
                                          bitrate:overallProgress.bitrate];
 
     if (delegateImplementsFlags & delegateProgress)
-        [delegate fileUpload:self uploadsDidProgress:overallProgress];
+        [delegate uploader:self uploadsDidProgress:overallProgress];
 }
 
-- (void)uploadDidSucceedForFile:(JQueryFileUploadFile)aFile
+- (void)uploadDidSucceedForFile:(CUFile)aFile
 {
-    [aFile setStatus:JQueryFileUploadFileStatus_Complete];
+    [aFile setStatus:CupFileStatus_Complete];
 
     // If a file upload is chunked and had one or more chunks,
     // the final progress was already set and when we get here
@@ -774,29 +774,29 @@ var widgetId = @"JQueryFileUpload_input",
         [aFile setBitrate:currentData.bitrate];
 
     if (delegateImplementsFlags & delegateSucceed)
-        [delegate fileUpload:self uploadDidSucceedForFile:aFile];
+        [delegate uploader:self uploadDidSucceedForFile:aFile];
 }
 
-- (void)uploadDidFailForFile:(JQueryFileUploadFile)aFile
+- (void)uploadDidFailForFile:(CUFile)aFile
 {
-    [aFile setStatus:JQueryFileUploadFileStatus_Pending];
+    [aFile setStatus:CupFileStatus_Pending];
 
     if (delegateImplementsFlags & delegateFail)
-        [delegate fileUpload:self uploadDidFailForFile:aFile];
+        [delegate uploader:self uploadDidFailForFile:aFile];
 }
 
-- (void)uploadDidCompleteForFile:(JQueryFileUploadFile)aFile
+- (void)uploadDidCompleteForFile:(CUFile)aFile
 {
     [aFile setUploading:NO];
 
     if (delegateImplementsFlags & delegateComplete)
-        [delegate fileUpload:self uploadDidCompleteForFile:aFile];
+        [delegate uploader:self uploadDidCompleteForFile:aFile];
 }
 
-- (void)uploadWasStoppedForFile:(JQueryFileUploadFile)aFile
+- (void)uploadWasStoppedForFile:(CUFile)aFile
 {
     if (delegateImplementsFlags & delegateStop)
-        [delegate fileUpload:self uploadWasStoppedForFile:aFile];
+        [delegate uploader:self uploadWasStoppedForFile:aFile];
 }
 
 - (void)uploadDidStop
@@ -804,14 +804,14 @@ var widgetId = @"JQueryFileUpload_input",
     [self setUploading:NO];
 
     if (delegateImplementsFlags & delegateStop)
-        [delegate fileUploadDidStop:self];
+        [delegate uploaderDidStop:self];
 
     // Remove complete files
     if (removeCompletedFiles)
     {
         var indexes = [queue indexesOfObjectsPassingTest:function(file)
                         {
-                            return [file status] === JQueryFileUploadFileStatus_Complete;
+                            return [file status] === CupFileStatus_Complete;
                         }];
 
         [queue removeObjectsAtIndexes:indexes];
@@ -822,25 +822,25 @@ var widgetId = @"JQueryFileUpload_input",
 - (void)fileInputDidSelectFiles:(CPArray)files
 {
     if (delegateImplementsFlags & delegateChange)
-        [delegate fileUpload:self fileInputDidSelectFiles:files];
+        [delegate uploader:self fileInputDidSelectFiles:files];
 }
 
 - (void)filesWerePasted:(CPArray)files
 {
     if (delegateImplementsFlags & delegatePaste)
-        [delegate fileUpload:self didPasteFiles:files];
+        [delegate uploader:self didPasteFiles:files];
 }
 
 - (void)filesWereDropped:(CPArray)files
 {
     if (delegateImplementsFlags & delegateDrop)
-        [delegate fileUpload:self didDropFiles:files];
+        [delegate uploader:self didDropFiles:files];
 }
 
 - (void)filesWereDraggedOverWithEvent:(jQueryEvent)anEvent
 {
     if (delegateImplementsFlags & delegateDrag)
-        [delegate fileUpload:self wasDraggedOverWithEvent:anEvent];
+        [delegate uploader:self wasDraggedOverWithEvent:anEvent];
 }
 
 #pragma mark Private helpers
@@ -852,7 +852,7 @@ var widgetId = @"JQueryFileUpload_input",
     fileUploadOptions = {};
     delegateImplementsFlags = 0;
 
-    fileClass = [JQueryFileUploadFile class];
+    fileClass = [CUFile class];
 
     [self queueController];  // instantiates queue and controller
 
@@ -1104,12 +1104,12 @@ var widgetId = @"JQueryFileUpload_input",
     [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 }
 
-- (JQueryFileUploadFile)fileFromJSFile:(JSFile)aFile
+- (CUFile)fileFromJSFile:(JSFile)aFile
 {
     return [self fileWithUID:aFile.CPUID];
 }
 
-- (JQueryFileUploadFile)fileWithUID:(CPString)aUID
+- (CUFile)fileWithUID:(CPString)aUID
 {
     return [queue objectAtIndex:[queue indexOfObjectPassingTest:function(file)
                 {
@@ -1171,24 +1171,24 @@ var widgetId = @"JQueryFileUpload_input",
     var flags = 0;
 
     if (filenameFilterRegex && !filenameFilterRegex.test(aFile.name))
-        flags |= JQueryFileUploadFilteredName;
+        flags |= CupFilteredName;
 
     if (aFile.hasOwnProperty("size") && maxFileSize && aFile.size > maxFileSize)
-        flags |= JQueryFileUploadFilteredSize;
+        flags |= CupFilteredSize;
 
     return flags;
 }
 
-- (void)fileWasRejected:(JQueryFileUploadFile)aFile because:(int)filterFlags
+- (void)fileWasRejected:(CUFile)aFile because:(int)filterFlags
 {
     var error = [CPString stringWithFormat:@"The file “%@” was rejected because the ", [aFile name]];
 
-    if (filterFlags & JQueryFileUploadFilteredName)
+    if (filterFlags & CupFilteredName)
         error += @"filename did not match the filename filter.";
 
-    if (filterFlags & JQueryFileUploadFilteredSize)
+    if (filterFlags & CupFilteredSize)
     {
-        if (filterFlags & JQueryFileUploadFilteredName)
+        if (filterFlags & CupFilteredName)
             error += @" In addition, the ";
 
         var fileSize = [CPNumberFormatter localizedStringFromNumber:[aFile size] numberStyle:CPNumberFormatterDecimalStyle],
@@ -1221,14 +1221,14 @@ var widgetId = @"JQueryFileUpload_input",
 
 
 /*!
-    @class JQueryFileUploadFile
+    @class CUFile
 
     A wrapper for the File API (https://developer.mozilla.org/en/DOM/file)
     that allows the values to be used in bindings. Note that if the browser
     does not support the File API, the size, type, and percentComplete
     properties will be zero/empty.
 
-    These objects are stored in the JQueryFileUpload queue controller,
+    These objects are stored in the CUController queue controller,
     thus you can bind through the queue controller's arrangedObjects or
     selection to properties of this class.
 
@@ -1237,7 +1237,7 @@ var widgetId = @"JQueryFileUpload_input",
     name            The filename of the file
     size            The file's size in bytes
     type            The file's mime type
-    status          One of the JQueryFileUploadStatus constants above
+    status          One of the CupStatus constants above
     uploading       A BOOL set to YES during uploading
     uploadedBytes   The number of bytes uploaded so far for this file
     bitrate         The upload bitrate for this file
@@ -1247,28 +1247,28 @@ var widgetId = @"JQueryFileUpload_input",
                     is known. This affects what is reported in the progress callbacks.
     data            The Javascript data object used by jQuery File Upload
 */
-@implementation JQueryFileUploadFile : CPObject
+@implementation CUFile : CPObject
 {
-    JQueryFileUpload    uploader;
-    CPString            name @accessors(readonly);
-    int                 size @accessors(readonly);
-    CPString            type @accessors(readonly);
-    int                 status @accessors;
-    BOOL                uploading @accessors;
-    int                 uploadedBytes @accessors;
-    float               bitrate @accessors;
-    BOOL                indeterminate @accessors(readonly);
-    JSObject            data @accessors;
+    CUController    uploader;
+    CPString        name @accessors(readonly);
+    int             size @accessors(readonly);
+    CPString        type @accessors(readonly);
+    int             status @accessors;
+    BOOL            uploading @accessors;
+    int             uploadedBytes @accessors;
+    float           bitrate @accessors;
+    BOOL            indeterminate @accessors(readonly);
+    JSObject        data @accessors;
 }
 
 + (void)initialize
 {
-    if (self !== [JQueryFileUploadFile class])
+    if (self !== [CUFile class])
         return;
 
-    FileStatuses[JQueryFileUploadFileStatus_Pending]   = @"Pending";
-    FileStatuses[JQueryFileUploadFileStatus_Uploading] = @"Uploading";
-    FileStatuses[JQueryFileUploadFileStatus_Complete]  = @"Complete";
+    FileStatuses[CupFileStatus_Pending]   = @"Pending";
+    FileStatuses[CupFileStatus_Uploading] = @"Uploading";
+    FileStatuses[CupFileStatus_Complete]  = @"Complete";
 }
 
 + (CPSet)keyPathsForValuesAffectingPercentComplete
@@ -1281,13 +1281,13 @@ var widgetId = @"JQueryFileUpload_input",
 
     Init with a Javascript File object and jQuery File Upload data.
 */
-- (id)initWithUploader:(JQueryFileUpload)anUploader file:(JSObject)aFile data:(JSObject)someData
+- (id)initWithUploader:(CUController)anUploader file:(JSObject)aFile data:(JSObject)someData
 {
     if (self = [super init])
     {
         uploader = anUploader;
         name = aFile.name;
-        status = JQueryFileUploadFileStatus_Pending;
+        status = CupFileStatus_Pending;
         uploading = NO;
         bitrate = 0.0;
         data = someData;
@@ -1320,11 +1320,11 @@ var widgetId = @"JQueryFileUpload_input",
 
 /*!
     Submit this file for uploading. This will in turn trigger the relevant
-    methods in JQueryFileUploader and its delegate.
+    methods in CUController and its delegate.
 */
 - (void)submit
 {
-    [self setStatus:JQueryFileUploadFileStatus_Uploading];
+    [self setStatus:CupFileStatus_Uploading];
     [self setUploadedBytes:0];
 
     data.submit();
@@ -1333,7 +1333,7 @@ var widgetId = @"JQueryFileUpload_input",
 /*!
     Notifies the file that it has actually started uploading.
     Normally you would not need to call this method, it is called
-    by JQueryFileUploader when necessary.
+    by CUController when necessary.
 */
 - (void)start
 {
@@ -1346,7 +1346,7 @@ var widgetId = @"JQueryFileUpload_input",
 */
 - (void)stop
 {
-    [self setStatus:JQueryFileUploadFileStatus_Pending];
+    [self setStatus:CupFileStatus_Pending];
     [self setUploading:NO];
 
     data.abort();
@@ -1368,11 +1368,11 @@ var widgetId = @"JQueryFileUpload_input",
 
     Usage
     1. Select the table cell view in which you want to place a stop button.
-    2. Go to the Identity Inspector and set the class to JQueryFileUploadTableCellView.
+    2. Go to the Identity Inspector and set the class to CUTableCellView.
     3. Place a button in the cell view.
     4. Connect the selector of the button to the `stopUpload:` method in its own cell view.
 */
-@implementation JQueryFileUploadTableCellView : CPTableCellView
+@implementation CUTableCellView : CPTableCellView
 
 - (@action)stopUpload:(id)sender
 {

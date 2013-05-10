@@ -1,6 +1,6 @@
 /*
  * Jakefile
- * JQueryFileUpload
+ * Cup
  *
  * Created by You on April 2, 2013.
  *
@@ -79,7 +79,7 @@ var stream = require("narwhal/term").stream,
     framework = require("cappuccino/jake").framework,
     browserEnvironment = require("objective-j/jake/environment").Browser,
     configuration = ENV["CONFIG"] || ENV["CONFIGURATION"] || ENV["c"] || "Debug",
-    productName = "JQueryFileUpload",
+    productName = "Cup",
     buildPath = FILE.canonical(FILE.join(buildDir, productName + ".build")),
     packageFrameworksPath = FILE.join(SYS.prefix, "packages", "cappuccino", "Frameworks"),
     debugPackagePath = FILE.join(packageFrameworksPath, "Debug", productName);
@@ -91,11 +91,11 @@ var frameworkTask = framework (productName, function(frameworkTask)
     frameworkTask.setBuildPath(FILE.join(buildDir, configuration));
 
     frameworkTask.setProductName(productName);
-    frameworkTask.setIdentifier("com.filmworkers.jqueryfileupload");
+    frameworkTask.setIdentifier("com.filmworkers.cup");
     frameworkTask.setVersion("1.0");
     frameworkTask.setAuthor("Aparajita Fishman");
     frameworkTask.setEmail("");
-    frameworkTask.setSummary("JQueryFileUpload");
+    frameworkTask.setSummary("Cup");
 
     var includes = sourceDirs.map(function(dir) { return dir + "/*.j"; }),
         fileList = new FileList();
@@ -158,7 +158,7 @@ task ("help", function()
     var app = JAKE.application().name();
 
     colorPrint("--------------------------------------------------------------------------", "bold+green");
-    colorPrint("JQueryFileUpload - Framework", "bold+green");
+    colorPrint("Cup - Framework", "bold+green");
     colorPrint("--------------------------------------------------------------------------", "bold+green");
 
     describeTask(app, "debug", "Builds a debug version at " + FILE.join(buildDir, "Debug", productName));

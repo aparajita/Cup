@@ -7,8 +7,8 @@
     <key>CPBundlePackageType</key>
     <string>FMWK</string>
     <key>CPBundleIdentifier</key>
-    <string>com.filmworkers.jqueryfileupload</string>
+    <string>com.filmworkers.cup</string>
     <key>CPPrincipalClass</key>
-    <string>JQueryFileUpload</string>
+    <string>CUController</string>
 </dict>
 </plist>

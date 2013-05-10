@@ -1,6 +1,6 @@
 /*
- * JQueryFileUploadByteCountTransformer.j
- * JQueryFileUpload
+ * CUByteCountTransformer.j
+ * Cup
  *
  * Created by Aparajita Fishman on March 25, 2013.
  * Copyright 2013, Filmworkers Club. All rights reserved.
@@ -34,7 +34,7 @@ var ByteCountTransformerSharedFormatter = nil;
     belongs to the transformer instance. You can then set the properties of the returned formatter
     as you wish.
 */
-@implementation JQueryFileUploadByteCountTransformer : CPValueTransformer
+@implementation CUByteCountTransformer : CPValueTransformer
 {
     CPByteCountFormatter valueFormatter;
 }
@@ -42,11 +42,11 @@ var ByteCountTransformerSharedFormatter = nil;
 /*! @ignore */
 + (void)initialize
 {
-    if (self !== JQueryFileUploadByteCountTransformer)
+    if (self !== CUByteCountTransformer)
         return;
 
     [CPValueTransformer setValueTransformer:[self new]
-                                    forName:@"JQueryFileUploadByteCountTransformer"];
+                                    forName:@"CUByteCountTransformer"];
 
     ByteCountTransformerSharedFormatter = [self makeFormatter];
 }
