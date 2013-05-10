@@ -7,9 +7,11 @@
  */
 
 @import <Foundation/CPDictionary.j>
+@import <Foundation/CPNumberFormatter.j>
 @import <Foundation/CPRunLoop.j>
 @import <Foundation/CPTimer.j>
 
+@import <AppKit/CPAlert.j>
 @import <AppKit/CPArrayController.j>
 @import <AppKit/CPCompatibility.j>
 @import <AppKit/CPPlatform.j>
@@ -442,7 +444,7 @@ var widgetId = @"JQueryFileUpload_input",
     if ([aClass isKindOfClass:[JQueryFileUploadFile class]])
     {
         fileClass = aClass;
-        [queueController setObjectClass:fileClass];
+        [[self queueController] setObjectClass:fileClass];
     }
     else
         CPLog.warn("%s: %s the file class must be a subclass of JQueryFileUploadFile.", [self className], [aClass className]);
@@ -655,6 +657,8 @@ var widgetId = @"JQueryFileUpload_input",
     }
     else if (delegateImplementsFlags & delegateFilter)
         [delegate fileUpload:self didFilterFile:file because:filterFlags];
+    else
+        [self fileWasRejected:file because:filterFlags];
 
     if (canAdd)
     {
@@ -848,10 +852,9 @@ var widgetId = @"JQueryFileUpload_input",
     fileUploadOptions = {};
     delegateImplementsFlags = 0;
 
-    if (queue === nil)
-        queue = [];
-
     fileClass = [JQueryFileUploadFile class];
+
+    [self queueController];  // instantiates queue and controller
 
     URL = URL || @"";
     redirectURL = @"";
@@ -1174,6 +1177,31 @@ var widgetId = @"JQueryFileUpload_input",
         flags |= JQueryFileUploadFilteredSize;
 
     return flags;
+}
+
+- (void)fileWasRejected:(JQueryFileUploadFile)aFile because:(int)filterFlags
+{
+    var error = [CPString stringWithFormat:@"The file “%@” was rejected because the ", [aFile name]];
+
+    if (filterFlags & JQueryFileUploadFilteredName)
+        error += @"filename did not match the filename filter.";
+
+    if (filterFlags & JQueryFileUploadFilteredSize)
+    {
+        if (filterFlags & JQueryFileUploadFilteredName)
+            error += @" In addition, the ";
+
+        var fileSize = [CPNumberFormatter localizedStringFromNumber:[aFile size] numberStyle:CPNumberFormatterDecimalStyle],
+            maxSize = [CPNumberFormatter localizedStringFromNumber:maxFileSize numberStyle:CPNumberFormatterDecimalStyle];
+
+        error += [CPString stringWithFormat:@"size (%s bytes) is larger than the maximum file size (%s bytes).", fileSize, maxSize];
+    }
+
+    [[CPAlert alertWithMessageText:error
+                     defaultButton:@"OK"
+                   alternateButton:nil
+                       otherButton:nil
+         informativeTextWithFormat:@""] runModal];
 }
 
 - (int)totalSizeOfQueue
