@@ -20,9 +20,9 @@
 
 @global jQuery
 
-CupFileStatus_Pending   = 0;
-CupFileStatus_Uploading = 1;
-CupFileStatus_Complete  = 2;
+CupFileStatusPending   = 0;
+CupFileStatusUploading = 1;
+CupFileStatusComplete  = 2;
 
 /*
     These constants are bit flags passed to the uploader:didFilterFile:because:
@@ -59,6 +59,8 @@ var widgetId = @"Cup_input",
     delegateStartQueue = 1 << 21,
     delegateClearQueue = 1 << 22,
     delegateStopQueue = 1 << 23;
+
+var CupDefaultProgressInterval = 100;
 
 /*!
     @class CUController
@@ -317,7 +319,7 @@ var widgetId = @"Cup_input",
     [self setSequential:options["sequential"] || YES];
     [self setMaxChunkSize:options["maxChunkSize"] || 0];
     [self setMaxConcurrentUploads:options["limitConcurrentUploads"] || NO];
-    [self setProgressInterval:options["progressInterval"] || 100];
+    [self setProgressInterval:options["progressInterval"] || CupDefaultProgressInterval];
 }
 
 /*!
@@ -762,7 +764,7 @@ var widgetId = @"Cup_input",
 
 - (void)uploadDidSucceedForFile:(CUFile)aFile
 {
-    [aFile setStatus:CupFileStatus_Complete];
+    [aFile setStatus:CupFileStatusComplete];
 
     // If a file upload is chunked and had one or more chunks,
     // the final progress was already set and when we get here
@@ -779,7 +781,7 @@ var widgetId = @"Cup_input",
 
 - (void)uploadDidFailForFile:(CUFile)aFile
 {
-    [aFile setStatus:CupFileStatus_Pending];
+    [aFile setStatus:CupFileStatusPending];
 
     if (delegateImplementsFlags & delegateFail)
         [delegate uploader:self uploadDidFailForFile:aFile];
@@ -811,7 +813,7 @@ var widgetId = @"Cup_input",
     {
         var indexes = [queue indexesOfObjectsPassingTest:function(file)
                         {
-                            return [file status] === CupFileStatus_Complete;
+                            return [file status] === CupFileStatusComplete;
                         }];
 
         [queue removeObjectsAtIndexes:indexes];
@@ -861,7 +863,7 @@ var widgetId = @"Cup_input",
     sequential = YES;
     maxConcurrentUploads = 0;
     maxChunkSize = 0;
-    progressInterval = 100;
+    progressInterval = CupDefaultProgressInterval;
     progress = [CPMutableDictionary dictionary];
     dropTarget = [CPPlatformWindow primaryPlatformWindow];
     jQueryDropTarget = jQuery(document);
@@ -1266,9 +1268,9 @@ var widgetId = @"Cup_input",
     if (self !== [CUFile class])
         return;
 
-    FileStatuses[CupFileStatus_Pending]   = @"Pending";
-    FileStatuses[CupFileStatus_Uploading] = @"Uploading";
-    FileStatuses[CupFileStatus_Complete]  = @"Complete";
+    FileStatuses[CupFileStatusPending]   = @"Pending";
+    FileStatuses[CupFileStatusUploading] = @"Uploading";
+    FileStatuses[CupFileStatusComplete]  = @"Complete";
 }
 
 + (CPSet)keyPathsForValuesAffectingPercentComplete
@@ -1287,7 +1289,7 @@ var widgetId = @"Cup_input",
     {
         uploader = anUploader;
         name = aFile.name;
-        status = CupFileStatus_Pending;
+        status = CupFileStatusPending;
         uploading = NO;
         bitrate = 0.0;
         data = someData;
@@ -1324,7 +1326,7 @@ var widgetId = @"Cup_input",
 */
 - (void)submit
 {
-    [self setStatus:CupFileStatus_Uploading];
+    [self setStatus:CupFileStatusUploading];
     [self setUploadedBytes:0];
 
     data.submit();
@@ -1346,7 +1348,7 @@ var widgetId = @"Cup_input",
 */
 - (void)stop
 {
-    [self setStatus:CupFileStatus_Pending];
+    [self setStatus:CupFileStatusPending];
     [self setUploading:NO];
 
     data.abort();
