@@ -1,5 +1,5 @@
 /*
- * CUControllerDelegate.j
+ * CupDelegate.j
  * Cup
  *
  * Created by Aparajita Fishman on February 7, 2013.
@@ -8,11 +8,11 @@
 
 @import <Foundation/CPObject.j>
 
-@import "CUController.j"
+@import "Cup.j"
 
 
 /*!
-    This class is the protocol for CUControllerDelegate objects.
+    This class is the protocol for CupDelegate objects.
     The methods in this class for the most part correspond to jQuery File Upload
     callbacks (https://github.com/blueimp/jQuery File Upload/wiki/Options#callback-options).
 
@@ -22,22 +22,22 @@
     If you are only using this as a template, you only need to implement
     the methods that you intend to add some functionality to.
 
-    All of the methods receive as their first parameter the CUController
+    All of the methods receive as their first parameter the Cup
     object of which the receiver is a delegate. The methods that are related
-    to a file also receive the CUFile object that is being operated on.
+    to a file also receive the CupFile object that is being operated on.
 
     If the delegate wants access to the underlying jQuery event or
     jQuery File Upload data object that is current, it can use the methods
-    [uploader currentEvent] or [uploader currentData].
+    [cup currentEvent] or [cup currentData].
 */
-@implementation CUControllerDelegate : CPObject
+@implementation CupDelegate : CPObject
 
 /*!
     An attempt was made to add a file to the queue but it was rejected.
     The reasons for being rejected are given in filterFlags, which is a bitwise OR
     of the CupFiltered flags.
 */
-- (void)uploader:(CUController)anUploader didFilterFile:(CUFile)aFile because:(int)filterFlags
+- (void)cup:(Cup)cup didFilterFile:(CupFile)file because:(int)filterFlags
 {
 }
 
@@ -45,7 +45,7 @@
     A file is about to be added to the queue. If you want to reject the file for some reason,
     return NO. Otherwise return YES.
 */
-- (BOOL)uploader:(CUController)anUploader willAddFile:(CUFile)aFile
+- (BOOL)cup:(Cup)cup willAddFile:(CupFile)file
 {
     return YES;
 }
@@ -53,14 +53,14 @@
 /*!
     A file was added to the queue.
 */
-- (void)uploader:(CUController)anUploader didAddFile:(CUFile)aFile
+- (void)cup:(Cup)cup didAddFile:(CupFile)file
 {
 }
 
 /*!
     The queue was started. All files in the queue will be submitted for uploading.
 */
-- (void)uploaderDidStart:(CUController)anUploader
+- (void)cupDidStart:(Cup)cup
 {
 }
 
@@ -68,7 +68,7 @@
     A file is about to be submitted for uploading. To prevent the file from being submitted,
     return NO, otherwise return YES.
 */
-- (BOOL)uploader:(CUController)anUploader willSubmitFile:(CUFile)aFile
+- (BOOL)cup:(Cup)cup willSubmitFile:(CupFile)file
 {
     return YES;
 }
@@ -77,7 +77,7 @@
     A submitted file is about to begin uploading. To abort the upload, return NO, otherwise
     return YES.
 */
-- (BOOL)uploader:(CUController)anUploader willSendFile:(CUFile)aFile
+- (BOOL)cup:(Cup)cup willSendFile:(CupFile)file
 {
     return YES;
 }
@@ -86,7 +86,7 @@
     A file chunk is about to begin uploading. To abort the upload, return NO, otherwise
     return YES.
 */
-- (BOOL)uploader:(CUController)anUploader willSendChunkForFile:(CUFile)aFile
+- (BOOL)cup:(Cup)cup willSendChunkForFile:(CupFile)file
 {
     return YES;
 }
@@ -94,22 +94,22 @@
 /*!
     A chunk was successfully uploaded.
 */
-- (void)uploader:(CUController)anUploader chunkDidSucceedForFile:(CUFile)aFile
+- (void)cup:(Cup)cup chunkDidSucceedForFile:(CupFile)file
 {
 }
 
 /*!
     A chunk failed to upload, either because of a connection error or because the upload was stopped.
 */
-- (void)uploader:(CUController)anUploader chunkDidFailForFile:(CUFile)aFile
+- (void)cup:(Cup)cup chunkDidFailForFile:(CupFile)file
 {
 }
 
 /*!
-    Processing of a chunk completed. This is called after uploader:chunkDidSucceedForFile: or
-    uploader:chunkDidFailForFile:.
+    Processing of a chunk completed. This is called after cup:chunkDidSucceedForFile: or
+    cup:chunkDidFailForFile:.
 */
-- (void)uploader:(CUController)anUploader chunkDidCompleteForFile:(CUFile)aFile
+- (void)cup:(Cup)cup chunkDidCompleteForFile:(CupFile)file
 {
 }
 
@@ -121,7 +121,7 @@
         total         - The total to be uploaded
         bitrate       - The average bitrate so far
 */
-- (void)uploader:(CUController)anUploader uploadForFile:(CUFile)aFile didProgress:(JSObject)progress
+- (void)cup:(Cup)cup uploadForFile:(CupFile)file didProgress:(JSObject)progress
 {
 }
 
@@ -133,36 +133,36 @@
         total         - The total to be uploaded
         bitrate       - The average bitrate so far
 */
-- (void)uploader:(CUController)anUploader uploadsDidProgress:(JSObject)progress
+- (void)cup:(Cup)cup uploadsDidProgress:(JSObject)progress
 {
 }
 
 /*!
     A file was successfully uploaded.
 */
-- (void)uploader:(CUController)anUploader uploadDidSucceedForFile:(CUFile)aFile
+- (void)cup:(Cup)cup uploadDidSucceedForFile:(CupFile)file
 {
 }
 
 /*!
     A file failed to upload, either because of a connection error or because the upload was stopped.
 */
-- (void)uploader:(CUController)anUploader uploadDidFailForFile:(CUFile)aFile
+- (void)cup:(Cup)cup uploadDidFailForFile:(CupFile)file
 {
 }
 
 /*!
     A file upload has completed, either through success or failure. This method is called after
-    uploader:uploadDidSucceedForFile: or uploader:uploadDidFailForFile:.
+    cup:uploadDidSucceedForFile: or cup:uploadDidFailForFile:.
 */
-- (void)uploader:(CUController)anUploader uploadDidCompleteForFile:(CUFile)aFile
+- (void)cup:(Cup)cup uploadDidCompleteForFile:(CupFile)file
 {
 }
 
 /*!
     A file upload was stopped, either individually or because the entire queue was stopped.
 */
-- (void)uploader:(CUController)anUploader uploadWasStoppedForFile:(CUFile)aFile
+- (void)cup:(Cup)cup uploadWasStoppedForFile:(CupFile)file
 {
 }
 
@@ -170,63 +170,63 @@
     The queue stopped uploading, either because all files in the queue completed or because
     the stop: action was triggered.
 */
-- (void)uploaderDidStop:(CUController)anUploader
+- (void)cupDidStop:(Cup)cup
 {
 }
 
 /*!
     The user selected files to add to the queue through a file selection dialog.
-    An array of Javascript File objects (not CUFile objects) is passed
+    An array of Javascript File objects (not CupFile objects) is passed
     in the files parameter.
 */
-- (void)uploader:(CUController)anUploader fileInputDidSelectFiles:(CPArray)files
+- (void)cup:(Cup)cup fileInputDidSelectFiles:(CPArray)files
 {
 }
 
 /*!
-    The CUController -start: action method was triggered.
+    The Cup -start: action method was triggered.
 */
-- (void)uploaderDidStartQueue:(CUController)anUploader
+- (void)cupDidStartQueue:(Cup)cup
 {
 }
 
 /*!
-    The CUController -clearQueue: action method was triggered.
+    The Cup -clearQueue: action method was triggered.
 */
-- (void)uploaderDidClearQueue:(CUController)anUploader
+- (void)cupDidClearQueue:(Cup)cup
 {
 }
 
 /*!
-    The CUController -stop: action method was triggered. This method is called
+    The Cup -stop: action method was triggered. This method is called
     before the individual files are stopped, so you can determine why a file was stopped.
 */
-- (void)uploaderDidStopQueue:(CUController)anUploader
+- (void)cupDidStopQueue:(Cup)cup
 {
 }
 
 /*!
-    One or more files were pasted into the CUController window.
-    An array of Javascript File objects (not CUFile objects) is passed
+    One or more files were pasted into the Cup window.
+    An array of Javascript File objects (not CupFile objects) is passed
     in the files parameter.
 */
-- (void)uploader:(CUController)anUploader didPasteFiles:(CPArray)files
+- (void)cup:(Cup)cup didPasteFiles:(CPArray)files
 {
 }
 
 /*!
-    One or more files were dropped onto the CUController drop target.
-    An array of Javascript File objects (not CUFile objects) is passed
+    One or more files were dropped onto the Cup drop target.
+    An array of Javascript File objects (not CupFile objects) is passed
     in the files parameter.
 */
-- (void)uploader:(CUController)anUploader didDropFiles:(CPArray)files
+- (void)cup:(Cup)cup didDropFiles:(CPArray)files
 {
 }
 
 /*!
-    Called periodically while files are being dragged over the CUController drop target.
+    Called periodically while files are being dragged over the Cup drop target.
 */
-- (void)uploader:(CUController)anUploader wasDraggedOverWithEvent:(jQueryEvent)anEvent
+- (void)cup:(Cup)cup wasDraggedOverWithEvent:(jQueryEvent)event
 {
 }
 

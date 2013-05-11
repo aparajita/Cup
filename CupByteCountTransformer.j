@@ -1,5 +1,5 @@
 /*
- * CUByteCountTransformer.j
+ * CupByteCountTransformer.j
  * Cup
  *
  * Created by Aparajita Fishman on March 25, 2013.
@@ -9,7 +9,7 @@
 @import <Foundation/CPByteCountFormatter.j>
 @import <Foundation/CPValueTransformer.j>
 
-var ByteCountTransformerSharedFormatter = nil;
+var CupByteCountTransformerSharedFormatter = nil;
 
 /*!
     This class is a CPValueTransformer that converts numbers into
@@ -34,7 +34,7 @@ var ByteCountTransformerSharedFormatter = nil;
     belongs to the transformer instance. You can then set the properties of the returned formatter
     as you wish.
 */
-@implementation CUByteCountTransformer : CPValueTransformer
+@implementation CupByteCountTransformer : CPValueTransformer
 {
     CPByteCountFormatter valueFormatter;
 }
@@ -42,13 +42,13 @@ var ByteCountTransformerSharedFormatter = nil;
 /*! @ignore */
 + (void)initialize
 {
-    if (self !== CUByteCountTransformer)
+    if (self !== CupByteCountTransformer)
         return;
 
     [CPValueTransformer setValueTransformer:[self new]
-                                    forName:@"CUByteCountTransformer"];
+                                    forName:@"CupByteCountTransformer"];
 
-    ByteCountTransformerSharedFormatter = [self makeFormatter];
+    CupByteCountTransformerSharedFormatter = [self makeFormatter];
 }
 
 /*! @ignore */
@@ -65,11 +65,11 @@ var ByteCountTransformerSharedFormatter = nil;
 }
 
 /*!
-    Return the shared CPByteCountFormatter used by default by all instances of this class.
+    Returns the shared CPByteCountFormatter used by default by all instances of this class.
 */
 + (CPByteCountFormatter)sharedFormatter
 {
-    return ByteCountTransformerSharedFormatter;
+    return CupByteCountTransformerSharedFormatter;
 }
 
 + (Class)transformedValueClass
@@ -107,7 +107,7 @@ var ByteCountTransformerSharedFormatter = nil;
 {
     value = value === nil ? 0 : value;
 
-    return [(valueFormatter ? valueFormatter : ByteCountTransformerSharedFormatter) stringFromByteCount:value];
+    return [(valueFormatter ? valueFormatter : CupByteCountTransformerSharedFormatter) stringFromByteCount:value];
 }
 
 @end

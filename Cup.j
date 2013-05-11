@@ -1,5 +1,5 @@
 /*
- * CUController.j
+ * Cup.j
  * Cup
  *
  * Created by Aparajita Fishman on February 3, 2013.
@@ -25,7 +25,7 @@ CupFileStatusUploading = 1;
 CupFileStatusComplete  = 2;
 
 /*
-    These constants are bit flags passed to the uploader:didFilterFile:because:
+    These constants are bit flags passed to the cup:didFilterFile:because:
     delegate method, indicating why the file was rejected.
 */
 CupFilteredName = 1 << 0;
@@ -63,29 +63,27 @@ var widgetId = @"Cup_input",
 var CupDefaultProgressInterval = 100;
 
 /*!
-    @class CUController
+    @class Cup
 
     A wrapper for jQuery File Upload. The main configuration options
     are available as accessor methods in this class. If other options
     need to be set, use the options and setOptions: methods.
 
-    NOTE: The singleFileUpload option is not supported, it is always set to true.
-
     The full set of callbacks supported by jQuery File Upload are provided as delegate methods.
-    See the CUControllerDelegate class for more info.
+    See the CupDelegate class for more info.
 
     This class exposes many KVO compliant properties, outlets and actions that are useful when
     creating interfaces that use this class. If you plan to create an interface using Cup
     in Xcode, you will get the most out of it by doing the following:
 
-    - In the controller class that will use Cup, create a CUController outlet.
+    - In the controller class that will use Cup, create a Cup outlet.
     - In Xcode, edit the xib that will contain the Cup interface.
-    - Add an NSObject to the xib and set its class to CUController.
-    - Connect the CUController instance to your controller's CUController outlet.
+    - Add an NSObject to the xib and set its class to Cup.
+    - Connect the Cup instance to your controller's Cup outlet.
     - Add an NSArrayController to the xib.
-    - Connect the queueController outlet of the CUController object to the array controller.
+    - Connect the queueController outlet of the Cup object to the array controller.
 
-    Once you have done this, you can bind directly to properties in the CUController object
+    Once you have done this, you can bind directly to properties in the Cup object
     and to the arrangedObjects and selection of the array controller.
 
     ----------
@@ -97,7 +95,7 @@ var CupDefaultProgressInterval = 100;
 
     Most of the read-write properties can be set in Xcode:
 
-    - Select the CUController object.
+    - Select the Cup object.
     - Select the Identity Inspector.
     - In the User Defined Runtime Attributes pane, click + to add an attribute.
     - Set the Key Path to the property's name.
@@ -135,10 +133,8 @@ var CupDefaultProgressInterval = 100;
     URL                     A string representing the URL to which files will be uploaded.
                             jQuery File Upload option: url.
 
-    redirectURL             A string. jQuery File Upload option: redirect.
-
     sequential              A BOOL indicating whether multiple uploads will be performed sequentially
-                            or concurrently. YES by default. jQuery File Upload option: sequentialUploads.
+                            or concurrently. NO by default. jQuery File Upload option: sequentialUploads.
 
     maxChunkSize            If non-zero, uploads will be chunked. This is definitely preferable
                             if you plan on supporting large files. jQuery File Upload option: maxChunkSize.
@@ -174,19 +170,19 @@ var CupDefaultProgressInterval = 100;
                             Usually this is of no interest, but if for some reason delegates want it,
                             they can retrieve it through this property. (read-only)
 
-    currentData             When a jQuery File Upload callback is triggered (which eventually calls a CUController
+    currentData             When a jQuery File Upload callback is triggered (which eventually calls a Cup
                             delegate method), in most cases a data object is passed that reflects the current state.
                             The most relevant fields within that object are copied to the Cappuccino state, so usually
                             you will have no need for this. Delegates may use this method to retrieve the data passed
                             from the most recent callback. (read-only)
 
-    queue                   The array of CUFile objects used to represent the queue. In most cases
+    queue                   The array of CupFile objects used to represent the queue. In most cases
                             you should consider this read-only and manipulate the queue through its array controller.
 
     fileClass               The class of the objects stored in the queue. May be set either with a class or a string
                             class name, which allows you to set the class in Xcode either through User Defined Runtime
                             Attributes or bindings. This is useful if you want to add custom properties or methods to
-                            the file objects. Must be CUFile or a subclass thereof.
+                            the file objects. Must be CupFile or a subclass thereof.
 
     -------
     Outlets
@@ -212,7 +208,7 @@ var CupDefaultProgressInterval = 100;
 
     clearQueue:         Clears all files from the upload queue. If an upload is in progress, does nothing.
 */
-@implementation CUController : CPObject
+@implementation Cup : CPObject
 {
     // jQuery File Upload options
     JSObject            fileUploadOptions;
@@ -269,7 +265,7 @@ var CupDefaultProgressInterval = 100;
 #pragma mark Initialization
 
 /*!
-    Initializes and returns a CUController object which uploads to the given URL.
+    Initializes and returns a Cup object which uploads to the given URL.
 */
 - (id)initWithURL:(CPString)aURL
 {
@@ -302,7 +298,7 @@ var CupDefaultProgressInterval = 100;
 */
 - (JSObject)options
 {
-    return [CPObject copyJSObject:[self makeOptions]];
+    return cloneOptions([self makeOptions]);
 }
 
 /*!
@@ -315,10 +311,9 @@ var CupDefaultProgressInterval = 100;
     fileUploadOptions = cloneOptions(options);
 
     [self setURL:options["url"] || @""];
-    [self setRedirectURL:options["redirect"] || @""];
-    [self setSequential:options["sequential"] || YES];
+    [self setSequential:options["sequential"] || NO];
     [self setMaxChunkSize:options["maxChunkSize"] || 0];
-    [self setMaxConcurrentUploads:options["limitConcurrentUploads"] || NO];
+    [self setMaxConcurrentUploads:options["limitConcurrentUploads"] || 0];
     [self setProgressInterval:options["progressInterval"] || CupDefaultProgressInterval];
 }
 
@@ -346,7 +341,7 @@ var CupDefaultProgressInterval = 100;
 }
 
 /*!
-    Sets the delegate. For information on delegate methods, see the CUControllerDelegate class.
+    Sets the delegate. For information on delegate methods, see the CupDelegate class.
 */
 - (void)setDelegate:(id)aDelegate
 {
@@ -359,82 +354,82 @@ var CupDefaultProgressInterval = 100;
     if (!delegate)
         return;
 
-    if ([delegate respondsToSelector:@selector(uploader:didFilterFile:because:)])
+    if ([delegate respondsToSelector:@selector(cup:didFilterFile:because:)])
         delegateImplementsFlags |= delegateFilter;
 
-    if ([delegate respondsToSelector:@selector(uploader:willAddFile:)])
+    if ([delegate respondsToSelector:@selector(cup:willAddFile:)])
         delegateImplementsFlags |= delegateWillAdd;
 
-    if ([delegate respondsToSelector:@selector(uploader:didAddFile:)])
+    if ([delegate respondsToSelector:@selector(cup:didAddFile:)])
         delegateImplementsFlags |= delegateAdd;
 
-    if ([delegate respondsToSelector:@selector(uploaderDidStart:)])
+    if ([delegate respondsToSelector:@selector(cupDidStart:)])
         delegateImplementsFlags |= delegateStart;
 
-    if ([delegate respondsToSelector:@selector(uploader:willSubmitFile:)])
+    if ([delegate respondsToSelector:@selector(cup:willSubmitFile:)])
         delegateImplementsFlags |= delegateSubmit;
 
-    if ([delegate respondsToSelector:@selector(uploader:willSendFile:)])
+    if ([delegate respondsToSelector:@selector(cup:willSendFile:)])
         delegateImplementsFlags |= delegateSend;
 
-    if ([delegate respondsToSelector:@selector(uploader:chunkWillSendForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:chunkWillSendForFile:)])
         delegateImplementsFlags |= delegateChunkWillSend;
 
-    if ([delegate respondsToSelector:@selector(uploader:chunkDidSucceedForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:chunkDidSucceedForFile:)])
         delegateImplementsFlags |= delegateChunkSucceed;
 
-    if ([delegate respondsToSelector:@selector(uploader:chunkDidFailForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:chunkDidFailForFile:)])
         delegateImplementsFlags |= delegateChunkFail;
 
-    if ([delegate respondsToSelector:@selector(uploader:chunkDidCompleteForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:chunkDidCompleteForFile:)])
         delegateImplementsFlags |= delegateChunkComplete;
 
-    if ([delegate respondsToSelector:@selector(uploader:uploadForFile:didProgress:)])
+    if ([delegate respondsToSelector:@selector(cup:uploadForFile:didProgress:)])
         delegateImplementsFlags |= delegateFileProgress;
 
-    if ([delegate respondsToSelector:@selector(uploader:uploadsDidProgress:)])
+    if ([delegate respondsToSelector:@selector(cup:uploadsDidProgress:)])
         delegateImplementsFlags |= delegateProgress;
 
-    if ([delegate respondsToSelector:@selector(uploader:uploadDidSucceedForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:uploadDidSucceedForFile:)])
         delegateImplementsFlags |= delegateSucceed;
 
-    if ([delegate respondsToSelector:@selector(uploader:uploadDidFailForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:uploadDidFailForFile:)])
         delegateImplementsFlags |= delegateFail;
 
-    if ([delegate respondsToSelector:@selector(uploader:uploadDidCompleteForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:uploadDidCompleteForFile:)])
         delegateImplementsFlags |= delegateComplete;
 
-    if ([delegate respondsToSelector:@selector(uploader:uploadWasStoppedForFile:)])
+    if ([delegate respondsToSelector:@selector(cup:uploadWasStoppedForFile:)])
         delegateImplementsFlags |= delegateStop;
 
-    if ([delegate respondsToSelector:@selector(uploaderDidStop:)])
+    if ([delegate respondsToSelector:@selector(cupDidStop:)])
         delegateImplementsFlags |= delegateStop;
 
-    if ([delegate respondsToSelector:@selector(uploader:fileInputDidSelectFiles:)])
+    if ([delegate respondsToSelector:@selector(cup:fileInputDidSelectFiles:)])
         delegateImplementsFlags |= delegateChange;
 
-    if ([delegate respondsToSelector:@selector(uploaderDidStartQueue:)])
+    if ([delegate respondsToSelector:@selector(cupDidStartQueue:)])
         delegateImplementsFlags |= delegateStartQueue;
 
-    if ([delegate respondsToSelector:@selector(uploaderDidClearQueue:)])
+    if ([delegate respondsToSelector:@selector(cupDidClearQueue:)])
         delegateImplementsFlags |= delegateClearQueue;
 
-    if ([delegate respondsToSelector:@selector(uploaderDidStopQueue:)])
+    if ([delegate respondsToSelector:@selector(cupDidStopQueue:)])
         delegateImplementsFlags |= delegateStopQueue;
 
-    if ([delegate respondsToSelector:@selector(uploader:didPasteFiles:)])
+    if ([delegate respondsToSelector:@selector(cup:didPasteFiles:)])
         delegateImplementsFlags |= delegatePaste;
 
-    if ([delegate respondsToSelector:@selector(uploader:didDropFiles:)])
+    if ([delegate respondsToSelector:@selector(cup:didDropFiles:)])
         delegateImplementsFlags |= delegateDrop;
 
-    if ([delegate respondsToSelector:@selector(uploader:wasDraggedOverWithEvent:)])
+    if ([delegate respondsToSelector:@selector(cup:wasDraggedOverWithEvent:)])
         delegateImplementsFlags |= delegateDrag;
 }
 
 /*!
     Sets the class for the objects stored in the upload queue.
-    The class must be CUFile or a subclass thereof.
+    The class must be CupFile or a subclass thereof.
 
     @param aClass Either a class object or a string name of a class
 */
@@ -443,13 +438,13 @@ var CupDefaultProgressInterval = 100;
     if ([aClass isKindOfClass:[CPString class]])
         aClass = CPClassFromString(aClass);
 
-    if ([aClass isKindOfClass:[CUFile class]])
+    if ([aClass isKindOfClass:[CupFile class]])
     {
         fileClass = aClass;
         [[self queueController] setObjectClass:fileClass];
     }
     else
-        CPLog.warn("%s: %s the file class must be a subclass of CUFile.", [self className], [aClass className]);
+        CPLog.warn("%s: %s the file class must be a subclass of CupFile.", [self className], [aClass className]);
 }
 
 /*!
@@ -572,7 +567,7 @@ var CupDefaultProgressInterval = 100;
     [queue makeObjectsPerformSelector:@selector(submit)];
 
     if (delegateImplementsFlags & delegateStartQueue)
-        [delegate uploaderDidStartQueue:self];
+        [delegate cupDidStartQueue:self];
 }
 
 /*!
@@ -581,7 +576,7 @@ var CupDefaultProgressInterval = 100;
 - (@action)stop:(id)sender
 {
     if (delegateImplementsFlags & delegateStopQueue)
-        [delegate uploaderDidStopQueue:self];
+        [delegate cupDidStopQueue:self];
 
     [queue makeObjectsPerformSelector:@selector(stop)];
 
@@ -603,7 +598,7 @@ var CupDefaultProgressInterval = 100;
     [self resetProgress];
 
     if (delegateImplementsFlags & delegateClearQueue)
-        [delegate uploaderDidClearQueue:self];
+        [delegate cupDidClearQueue:self];
 }
 
 #pragma mark Methods
@@ -611,7 +606,7 @@ var CupDefaultProgressInterval = 100;
 /*!
     Returns the file in the queue with the given UID, or nil if none match.
 */
-- (CUFile)fileWithUID:(CPString)aUID
+- (CupFile)fileWithUID:(CPString)aUID
 {
     var file = [queue objectAtIndex:[queue indexOfObjectPassingTest:function(file)
                     {
@@ -642,35 +637,31 @@ var CupDefaultProgressInterval = 100;
 
 /// @cond IGNORE
 
-- (void)addFile:(JSFile)aFile
+- (void)addFile:(JSFile)file
 {
-    var filterFlags = [self validateFile:aFile],
+    var filterFlags = [self validateFile:file],
         canAdd = filterFlags === 0,
-        file = [[fileClass alloc] initWithUploader:self file:aFile data:currentData];
-
-    // Tag the JS File object with the CUFile UID so we can locate
-    // the CUFile object later from a File object.
-    aFile.CPUID = [file UID];
+        cupFile = [[fileClass alloc] initWithCup:self file:file data:currentData];
 
     if (canAdd)
     {
         if (delegateImplementsFlags & delegateWillAdd)
-            canAdd = [delegate uploader:self willAddFile:file];
+            canAdd = [delegate cup:self willAddFile:cupFile];
     }
     else if (delegateImplementsFlags & delegateFilter)
-        [delegate uploader:self didFilterFile:file because:filterFlags];
+        [delegate cup:self didFilterFile:cupFile because:filterFlags];
     else
-        [self fileWasRejected:file because:filterFlags];
+        [self fileWasRejected:cupFile because:filterFlags];
 
     if (canAdd)
     {
-        [[self queueController] addObject:file];
+        [[self queueController] addObject:cupFile];
 
         if (delegateImplementsFlags & delegateAdd)
-            [delegate uploader:self didAddFile:file];
+            [delegate cup:self didAddFile:cupFile];
 
         if (autoUpload)
-            [file submit];
+            [cupFile submit];
     }
 }
 
@@ -680,10 +671,10 @@ var CupDefaultProgressInterval = 100;
     [self setUploading:YES];
 
     if (delegateImplementsFlags & delegateStart)
-        [delegate uploaderDidStart:self];
+        [delegate cupDidStart:self];
 }
 
-- (BOOL)submitFile:(CUFile)aFile
+- (BOOL)submitFile:(CupFile)file
 {
     if (!URL)
     {
@@ -694,61 +685,61 @@ var CupDefaultProgressInterval = 100;
     var canSubmit = YES;
 
     if (delegateImplementsFlags & delegateSubmit)
-        canSubmit = [delegate uploader:self willSubmitFile:aFile];
+        canSubmit = [delegate cup:self willSubmitFile:file];
 
     return canSubmit;
 }
 
-- (BOOL)willSendFile:(CUFile)aFile
+- (BOOL)willSendFile:(CupFile)file
 {
     var canSend = YES;
 
     if (delegateImplementsFlags & delegateSend)
-        canSend = [delegate uploader:self willSendFile:aFile];
+        canSend = [delegate cup:self willSendFile:file];
 
     if (canSend)
-        [aFile start];
+        [file start];
 
     return canSend;
 }
 
-- (BOOL)chunkWillSendForFile:(CUFile)aFile
+- (BOOL)chunkWillSendForFile:(CupFile)file
 {
     if (delegateImplementsFlags & delegateChunkWillSend)
-        return [delegate uploader:self willSendChunkForFile:aFile];
+        return [delegate cup:self willSendChunkForFile:file];
 
     return YES;
 }
 
-- (void)chunkDidSucceedForFile:(CUFile)aFile
+- (void)chunkDidSucceedForFile:(CupFile)file
 {
-    [aFile setUploadedBytes:currentData.loaded];
+    [file setUploadedBytes:currentData.loaded];
 
     if (delegateImplementsFlags & delegateChunkSucceed)
-        [delegate uploader:self chunkDidSucceedForFile:aFile];
+        [delegate cup:self chunkDidSucceedForFile:file];
 }
 
-- (void)chunkDidFailForFile:(CUFile)aFile
+- (void)chunkDidFailForFile:(CupFile)file
 {
     if (delegateImplementsFlags & delegateChunkFail)
-        [delegate uploader:self chunkDidFailForFile:aFile];
+        [delegate cup:self chunkDidFailForFile:file];
 }
 
-- (void)chunkDidCompleteForFile:(CUFile)aFile
+- (void)chunkDidCompleteForFile:(CupFile)file
 {
     if (delegateImplementsFlags & delegateChunkComplete)
-        [delegate uploader:self chunkDidCompleteForFile:aFile];
+        [delegate cup:self chunkDidCompleteForFile:file];
 }
 
-- (void)uploadForFile:(CUFile)aFile didProgress:(JSObject)fileProgress
+- (void)uploadForFile:(CupFile)file didProgress:(JSObject)fileProgress
 {
     if (fileProgress.uploadedBytes)
-        [aFile setUploadedBytes:fileProgress.uploadedBytes];
+        [file setUploadedBytes:fileProgress.uploadedBytes];
 
-    [aFile setBitrate:fileProgress.bitrate];
+    [file setBitrate:fileProgress.bitrate];
 
     if (delegateImplementsFlags & delegateFileProgress)
-        [delegate uploader:self uploadForFile:aFile didProgress:fileProgress];
+        [delegate cup:self uploadForFile:file didProgress:fileProgress];
 }
 
 - (void)uploadsDidProgress:(JSObject)overallProgress
@@ -759,46 +750,46 @@ var CupDefaultProgressInterval = 100;
                                          bitrate:overallProgress.bitrate];
 
     if (delegateImplementsFlags & delegateProgress)
-        [delegate uploader:self uploadsDidProgress:overallProgress];
+        [delegate cup:self uploadsDidProgress:overallProgress];
 }
 
-- (void)uploadDidSucceedForFile:(CUFile)aFile
+- (void)uploadDidSucceedForFile:(CupFile)file
 {
-    [aFile setStatus:CupFileStatusComplete];
+    [file setStatus:CupFileStatusComplete];
 
     // If a file upload is chunked and had one or more chunks,
     // the final progress was already set and when we get here
     // the loaded and bitrate values are zero, so ignore them.
     if (currentData.loaded)
-        [aFile setUploadedBytes:currentData.loaded];
+        [file setUploadedBytes:currentData.loaded];
 
     if (currentData.bitrate)
-        [aFile setBitrate:currentData.bitrate];
+        [file setBitrate:currentData.bitrate];
 
     if (delegateImplementsFlags & delegateSucceed)
-        [delegate uploader:self uploadDidSucceedForFile:aFile];
+        [delegate cup:self uploadDidSucceedForFile:file];
 }
 
-- (void)uploadDidFailForFile:(CUFile)aFile
+- (void)uploadDidFailForFile:(CupFile)file
 {
-    [aFile setStatus:CupFileStatusPending];
+    [file setStatus:CupFileStatusPending];
 
     if (delegateImplementsFlags & delegateFail)
-        [delegate uploader:self uploadDidFailForFile:aFile];
+        [delegate cup:self uploadDidFailForFile:file];
 }
 
-- (void)uploadDidCompleteForFile:(CUFile)aFile
+- (void)uploadDidCompleteForFile:(CupFile)file
 {
-    [aFile setUploading:NO];
+    [file setUploading:NO];
 
     if (delegateImplementsFlags & delegateComplete)
-        [delegate uploader:self uploadDidCompleteForFile:aFile];
+        [delegate cup:self uploadDidCompleteForFile:file];
 }
 
-- (void)uploadWasStoppedForFile:(CUFile)aFile
+- (void)uploadWasStoppedForFile:(CupFile)file
 {
     if (delegateImplementsFlags & delegateStop)
-        [delegate uploader:self uploadWasStoppedForFile:aFile];
+        [delegate cup:self uploadWasStoppedForFile:file];
 }
 
 - (void)uploadDidStop
@@ -806,7 +797,7 @@ var CupDefaultProgressInterval = 100;
     [self setUploading:NO];
 
     if (delegateImplementsFlags & delegateStop)
-        [delegate uploaderDidStop:self];
+        [delegate cupDidStop:self];
 
     // Remove complete files
     if (removeCompletedFiles)
@@ -824,25 +815,25 @@ var CupDefaultProgressInterval = 100;
 - (void)fileInputDidSelectFiles:(CPArray)files
 {
     if (delegateImplementsFlags & delegateChange)
-        [delegate uploader:self fileInputDidSelectFiles:files];
+        [delegate cup:self fileInputDidSelectFiles:files];
 }
 
 - (void)filesWerePasted:(CPArray)files
 {
     if (delegateImplementsFlags & delegatePaste)
-        [delegate uploader:self didPasteFiles:files];
+        [delegate cup:self didPasteFiles:files];
 }
 
 - (void)filesWereDropped:(CPArray)files
 {
     if (delegateImplementsFlags & delegateDrop)
-        [delegate uploader:self didDropFiles:files];
+        [delegate cup:self didDropFiles:files];
 }
 
 - (void)filesWereDraggedOverWithEvent:(jQueryEvent)anEvent
 {
     if (delegateImplementsFlags & delegateDrag)
-        [delegate uploader:self wasDraggedOverWithEvent:anEvent];
+        [delegate cup:self wasDraggedOverWithEvent:anEvent];
 }
 
 #pragma mark Private helpers
@@ -854,13 +845,13 @@ var CupDefaultProgressInterval = 100;
     fileUploadOptions = {};
     delegateImplementsFlags = 0;
 
-    fileClass = [CUFile class];
+    fileClass = [CupFile class];
 
     [self queueController];  // instantiates queue and controller
 
     URL = URL || @"";
     redirectURL = @"";
-    sequential = YES;
+    sequential = NO;
     maxConcurrentUploads = 0;
     maxChunkSize = 0;
     progressInterval = CupDefaultProgressInterval;
@@ -969,7 +960,7 @@ var CupDefaultProgressInterval = 100;
                 currentData = data;
 
                 var fileProgress = {
-                    uploadedBytes:  data.uploadedBytes,
+                    uploadedBytes:  data.loaded,
                     total:          data.total,
                     bitrate:        data.bitrate
                 };
@@ -1106,17 +1097,19 @@ var CupDefaultProgressInterval = 100;
     [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 }
 
-- (CUFile)fileFromJSFile:(JSFile)aFile
+- (CupFile)fileFromJSFile:(JSFile)file
 {
-    return [self fileWithUID:aFile.CPUID];
+    return [self fileWithUID:file.CPUID];
 }
 
-- (CUFile)fileWithUID:(CPString)aUID
+- (CupFile)fileWithUID:(CPString)aUID
 {
-    return [queue objectAtIndex:[queue indexOfObjectPassingTest:function(file)
-                {
-                    return [file UID] === aUID;
-                }]];
+    var index = [queue indexOfObjectPassingTest:function(file)
+                    {
+                        return [file UID] === aUID;
+                    }];
+
+    return index >= 0 ? queue[index] : nil;
 }
 
 - (id)fileUpload:(id)firstObject, ...
@@ -1135,9 +1128,7 @@ var CupDefaultProgressInterval = 100;
 {
     fileUploadOptions["dataType"] = "json";
     fileUploadOptions["url"] = URL;
-    fileUploadOptions["redirect"] = redirectURL;
     fileUploadOptions["sequentialUploads"] = sequential;
-    fileUploadOptions["singleFileUploads"] = true;
     fileUploadOptions["maxChunkSize"] = maxChunkSize;
     fileUploadOptions["limitConcurrentUploads"] = maxConcurrentUploads;
     fileUploadOptions["progressInterval"] = progressInterval;
@@ -1168,22 +1159,22 @@ var CupDefaultProgressInterval = 100;
     [self updateProgressWithUploadedBytes:0 total:[self totalSizeOfQueue] percentComplete:0 bitrate:0];
 }
 
-- (int)validateFile:(JSFile)aFile
+- (int)validateFile:(JSFile)file
 {
     var flags = 0;
 
-    if (filenameFilterRegex && !filenameFilterRegex.test(aFile.name))
+    if (filenameFilterRegex && !filenameFilterRegex.test(file.name))
         flags |= CupFilteredName;
 
-    if (aFile.hasOwnProperty("size") && maxFileSize && aFile.size > maxFileSize)
+    if (file.hasOwnProperty("size") && maxFileSize && file.size > maxFileSize)
         flags |= CupFilteredSize;
 
     return flags;
 }
 
-- (void)fileWasRejected:(CUFile)aFile because:(int)filterFlags
+- (void)fileWasRejected:(CupFile)file because:(int)filterFlags
 {
-    var error = [CPString stringWithFormat:@"The file “%@” was rejected because the ", [aFile name]];
+    var error = [CPString stringWithFormat:@"The file “%@” was rejected because the ", [file name]];
 
     if (filterFlags & CupFilteredName)
         error += @"filename did not match the filename filter.";
@@ -1193,7 +1184,7 @@ var CupDefaultProgressInterval = 100;
         if (filterFlags & CupFilteredName)
             error += @" In addition, the ";
 
-        var fileSize = [CPNumberFormatter localizedStringFromNumber:[aFile size] numberStyle:CPNumberFormatterDecimalStyle],
+        var fileSize = [CPNumberFormatter localizedStringFromNumber:[file size] numberStyle:CPNumberFormatterDecimalStyle],
             maxSize = [CPNumberFormatter localizedStringFromNumber:maxFileSize numberStyle:CPNumberFormatterDecimalStyle];
 
         error += [CPString stringWithFormat:@"size (%s bytes) is larger than the maximum file size (%s bytes).", fileSize, maxSize];
@@ -1223,14 +1214,14 @@ var CupDefaultProgressInterval = 100;
 
 
 /*!
-    @class CUFile
+    @class CupFile
 
     A wrapper for the File API (https://developer.mozilla.org/en/DOM/file)
     that allows the values to be used in bindings. Note that if the browser
     does not support the File API, the size, type, and percentComplete
     properties will be zero/empty.
 
-    These objects are stored in the CUController queue controller,
+    These objects are stored in the Cup queue controller,
     thus you can bind through the queue controller's arrangedObjects or
     selection to properties of this class.
 
@@ -1249,9 +1240,9 @@ var CupDefaultProgressInterval = 100;
                     is known. This affects what is reported in the progress callbacks.
     data            The Javascript data object used by jQuery File Upload
 */
-@implementation CUFile : CPObject
+@implementation CupFile : CPObject
 {
-    CUController    uploader;
+    Cup             cup;
     CPString        name @accessors(readonly);
     int             size @accessors(readonly);
     CPString        type @accessors(readonly);
@@ -1265,7 +1256,7 @@ var CupDefaultProgressInterval = 100;
 
 + (void)initialize
 {
-    if (self !== [CUFile class])
+    if (self !== [CupFile class])
         return;
 
     FileStatuses[CupFileStatusPending]   = @"Pending";
@@ -1283,21 +1274,24 @@ var CupDefaultProgressInterval = 100;
 
     Init with a Javascript File object and jQuery File Upload data.
 */
-- (id)initWithUploader:(CUController)anUploader file:(JSObject)aFile data:(JSObject)someData
+- (id)initWithCup:(Cup)aCup file:(JSObject)file data:(JSObject)someData
 {
     if (self = [super init])
     {
-        uploader = anUploader;
-        name = aFile.name;
+        // Tag the JS File object with the CupFile UID so we can locate the CupFile
+        // object later from a File object passed by a jQuery File Upload callback.
+        file.CPUID = [self UID];
+        cup = aCup;
+        name = file.name;
         status = CupFileStatusPending;
         uploading = NO;
         bitrate = 0.0;
         data = someData;
 
-        if (aFile.hasOwnProperty("size"))
+        if (file.hasOwnProperty("size"))
         {
-            size = aFile.size;
-            type = aFile.type;
+            size = file.size;
+            type = file.type;
             indeterminate = NO;
         }
         else
@@ -1322,7 +1316,7 @@ var CupDefaultProgressInterval = 100;
 
 /*!
     Submit this file for uploading. This will in turn trigger the relevant
-    methods in CUController and its delegate.
+    methods in Cup and its delegate.
 */
 - (void)submit
 {
@@ -1335,7 +1329,7 @@ var CupDefaultProgressInterval = 100;
 /*!
     Notifies the file that it has actually started uploading.
     Normally you would not need to call this method, it is called
-    by CUController when necessary.
+    by Cup when necessary.
 */
 - (void)start
 {
@@ -1353,7 +1347,7 @@ var CupDefaultProgressInterval = 100;
 
     data.abort();
 
-    [uploader uploadWasStoppedForFile:self];
+    [cup uploadWasStoppedForFile:self];
 }
 
 - (CPString)description
@@ -1370,11 +1364,11 @@ var CupDefaultProgressInterval = 100;
 
     Usage
     1. Select the table cell view in which you want to place a stop button.
-    2. Go to the Identity Inspector and set the class to CUTableCellView.
+    2. Go to the Identity Inspector and set the class to CupTableCellView.
     3. Place a button in the cell view.
     4. Connect the selector of the button to the `stopUpload:` method in its own cell view.
 */
-@implementation CUTableCellView : CPTableCellView
+@implementation CupTableCellView : CPTableCellView
 
 - (@action)stopUpload:(id)sender
 {
@@ -1391,12 +1385,8 @@ var cloneOptions = function(options)
 
     for (var key in options)
         if (options.hasOwnProperty(key))
-            if (typeof(options[key] === "function"))
+            if (typeof(options[key]) === "function")
                 continue;
-            else if (options[key].constructor === Array)
-                clone[key] = options[key].slice(0);
-            else if (typeof(options[key]) === "object")
-                clone[key] = [CPObject copyJSObject:options[key]];
             else
                 clone[key] = options[key];
 
