@@ -661,7 +661,10 @@ var CupDefaultProgressInterval = 100;
             [delegate cup:self didAddFile:cupFile];
 
         if (autoUpload)
+        {
+            [self fileUpload:@"option", [self makeOptions]];
             [cupFile submit];
+        }
     }
 }
 
