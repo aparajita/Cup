@@ -92,7 +92,7 @@ var frameworkTask = framework (productName, function(frameworkTask)
 
     frameworkTask.setProductName(productName);
     frameworkTask.setIdentifier("com.filmworkers.cup");
-    frameworkTask.setVersion("1.0");
+    frameworkTask.setVersion("1.0.1");
     frameworkTask.setAuthor("Aparajita Fishman");
     frameworkTask.setEmail("");
     frameworkTask.setSummary("Cup");

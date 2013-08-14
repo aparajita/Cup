@@ -255,7 +255,7 @@ var CupDefaultProgressInterval = 100;
 /*!
     Returns the current version of the framework as a string.
 */
-+ (CPString)version
++ (CPString)versionString
 {
     var bundle = [CPBundle bundleForClass:[self class]];
 
