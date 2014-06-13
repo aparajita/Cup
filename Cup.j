@@ -33,8 +33,7 @@ CupFilteredSize = 1 << 1;
 
 var FileStatuses = [];
 
-var widgetId = @"Cup_input",
-    callbacks = nil,
+var baseWidgetId = @"Cup_input",
     delegateFilter = 1 << 0,
     delegateWillAdd = 1 << 1,
     delegateAdd = 1 << 2,
@@ -240,6 +239,9 @@ var CupDefaultProgressInterval = 100;
 
     Class               fileClass @accessors;
 
+    CPString            widgetId;
+    JSObject            callbacks;
+
     CPMutableArray            queue @accessors(readonly);
     @outlet CPArrayController queueController @accessors(readonly);
 }
@@ -433,7 +435,7 @@ var CupDefaultProgressInterval = 100;
 
     @param aClass Either a class object or a string name of a class
 */
-- (void)setFileClass:(id)aClass
+- (void)setFileClass:(Class)aClass
 {
     if ([aClass isKindOfClass:[CPString class]])
         aClass = CPClassFromString(aClass);
@@ -874,14 +876,21 @@ var CupDefaultProgressInterval = 100;
 
 - (void)makeFileInput
 {
-    var input = document.getElementById(widgetId);
+    // Get the first unused id
+    var input = nil;
 
-    if (input)
-        return;
+    for (var counter = 1; ; ++counter)
+    {
+        widgetId = baseWidgetId + counter;
+        input = document.getElementById(widgetId);
 
-    var bodyElement = [CPPlatform mainBodyElement],
-        input = document.createElement("input");
+        if (!input)
+            break;
+    }
 
+    var bodyElement = [CPPlatform mainBodyElement];
+
+    input = document.createElement("input");
     input.className = "cpdontremove";
     input.setAttribute("type", "file");
     input.setAttribute("id", widgetId);
