@@ -19,6 +19,7 @@
 @import <AppKit/CPTableView.j>
 
 @global jQuery
+@typedef jQueryEvent
 
 CupFileStatusPending   = 0;
 CupFileStatusUploading = 1;
@@ -1178,7 +1179,7 @@ var CupDefaultProgressInterval = 100;
     if (filenameFilterRegex && !filenameFilterRegex.test(file.name))
         flags |= CupFilteredName;
 
-    if (file.hasOwnProperty("size") && maxFileSize && file.size > maxFileSize)
+    if (file.size != null && maxFileSize && file.size > maxFileSize)
         flags |= CupFilteredSize;
 
     return flags;
@@ -1300,7 +1301,7 @@ var CupDefaultProgressInterval = 100;
         bitrate = 0.0;
         data = someData;
 
-        if (file.hasOwnProperty("size"))
+        if (file.size != null)
         {
             size = file.size;
             type = file.type;
